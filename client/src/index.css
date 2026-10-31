@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --brand-red: #C62828;
+  --brand-dark-red: #8E1B1B;
+  --brand-light-bg: #FFF9F9;
+  --brand-text: #222222;
+  --brand-light-red: #FDECEC;
+}
+
+body {
+  background-color: var(--brand-light-bg);
+  color: var(--brand-text);
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
