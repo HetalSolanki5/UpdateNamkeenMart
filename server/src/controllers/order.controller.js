@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { Order, OrderItem, Stock } from '../models/index.js';
-import { createOrderFromCart, getOrderFullDetails } from '../services/order.service.js';
+import { createOrderFromCart, getOrderFullDetails, initiateRazorpayOrder, verifyAndCreateOrder } from '../services/order.service.js';
 
 const STATUS_SEQUENCE = [
   'placed',
@@ -32,6 +32,92 @@ export const checkoutOrder = async (req, res, next) => {
 
     const result = await createOrderFromCart(req.user, { addressId, paymentMethod });
 
+    return res.status(201).json({
+      message: 'Order placed successfully',
+      ...result
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.message || 'Internal Server Error'
+    });
+  }
+};
+
+// @desc    Initiate checkout — COD: creates order immediately; Online: creates a Razorpay order
+// @route   POST /api/orders/initiate
+// @access  Private (Customer only)
+export const initiateCheckout = async (req, res, next) => {
+  try {
+    const { addressId, paymentMethod } = req.body;
+
+    if (!addressId || !mongoose.Types.ObjectId.isValid(addressId)) {
+      return res.status(400).json({ message: 'Valid delivery addressId is required.' });
+    }
+
+    const allowedPaymentMethods = ['upi', 'card', 'netbanking', 'cod'];
+    if (!paymentMethod || !allowedPaymentMethods.includes(paymentMethod)) {
+      return res.status(400).json({
+        message: 'Invalid payment method. Allowed options: upi, card, netbanking, cod.'
+      });
+    }
+
+    // COD: create the order immediately (unchanged behavior from Phase 5A)
+    if (paymentMethod === 'cod') {
+      const result = await createOrderFromCart(req.user, { addressId, paymentMethod });
+      return res.status(201).json({
+        message: 'Order placed successfully',
+        ...result
+      });
+    }
+
+    // Online payment (upi / card / netbanking): do NOT create the order yet.
+    // Instead, create a Razorpay order and return its ID to the frontend so it
+    // can open the Razorpay checkout popup. The order is created only after the
+    // customer completes payment and the signature is verified via /verify.
+    const razorpayData = await initiateRazorpayOrder(req.user, { addressId });
+
+    return res.status(200).json({
+      razorpayOrderId: razorpayData.razorpayOrderId,
+      amount: razorpayData.amount,
+      currency: razorpayData.currency,
+      // keyId is the PUBLIC Razorpay key — safe to expose to the frontend.
+      // The secret key never leaves the server and is never included in any response.
+      keyId: process.env.RAZORPAY_KEY_ID,
+      addressId: razorpayData.addressId
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.message || 'Internal Server Error'
+    });
+  }
+};
+
+// @desc    Verify Razorpay payment signature and create the order
+// @route   POST /api/orders/verify
+// @access  Private (Customer only)
+export const verifyPayment = async (req, res, next) => {
+  try {
+    const { addressId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    if (!addressId || !mongoose.Types.ObjectId.isValid(addressId)) {
+      return res.status(400).json({ message: 'Valid delivery addressId is required.' });
+    }
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        message: 'razorpay_order_id, razorpay_payment_id, and razorpay_signature are all required.'
+      });
+    }
+
+    // Verify signature and create order — returns same shape as createOrderFromCart
+    const result = await verifyAndCreateOrder(req.user, {
+      addressId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    });
+
+    // Return 201 with the same shape the frontend's CheckoutPage success handler expects
     return res.status(201).json({
       message: 'Order placed successfully',
       ...result

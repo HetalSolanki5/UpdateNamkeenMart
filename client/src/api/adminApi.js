@@ -111,3 +111,33 @@ export const getAuditLogs = async (params = {}) => {
   const response = await axiosClient.get(url);
   return response.data;
 };
+
+/**
+ * Get admin products with variants, stock & pricing (GET /api/admin/products)
+ * @param {Object} params - { search, category, page, limit }
+ */
+export const getAdminProducts = async (params = {}) => {
+  const url = buildUrlWithParams('/admin/products', params);
+  const response = await axiosClient.get(url);
+  return response.data;
+};
+
+/**
+ * Update variant pricing & fields (PUT /api/admin/variants/:variantId)
+ * @param {string} variantId
+ * @param {Object} data - { sellingPrice, wholesalePrice, weight, unit, displayName, sku }
+ */
+export const updateAdminVariant = async (variantId, data) => {
+  const response = await axiosClient.put(`/admin/variants/${variantId}`, data);
+  return response.data;
+};
+
+/**
+ * Update variant stock quantity (PUT /api/admin/stock/:variantId)
+ * @param {string} variantId
+ * @param {Object} data - { availableQuantity, lowStockThreshold }
+ */
+export const updateAdminStock = async (variantId, data) => {
+  const response = await axiosClient.put(`/admin/stock/${variantId}`, data);
+  return response.data;
+};

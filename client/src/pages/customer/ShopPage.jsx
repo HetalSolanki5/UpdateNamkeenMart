@@ -172,6 +172,38 @@ const ShopPage = () => {
         </p>
       </div>
 
+      {/* Category Pills (Horizontal Scrollable Row) */}
+      <div className="mb-6 overflow-x-auto pb-2 scrollbar-none flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => handleFilterChange('category', '')}
+          className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shadow-xs cursor-pointer ${
+            !filters.category
+              ? 'bg-[#C62828] text-white shadow-sm'
+              : 'bg-white border border-[#FDECEC] text-[#8E1B1B] hover:bg-[#FDECEC]'
+          }`}
+        >
+          All Categories
+        </button>
+        {categories.map((cat) => {
+          const isSelected = filters.category === cat._id;
+          return (
+            <button
+              key={cat._id}
+              type="button"
+              onClick={() => handleFilterChange('category', cat._id)}
+              className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shadow-xs cursor-pointer ${
+                isSelected
+                  ? 'bg-[#C62828] text-white shadow-sm'
+                  : 'bg-white border border-[#FDECEC] text-[#8E1B1B] hover:bg-[#FDECEC]'
+              }`}
+            >
+              {cat.categoryName}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Top Controls: Search Bar, Mobile Filter Button, Sort Dropdown */}
       <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         {/* Search Input */}

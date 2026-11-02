@@ -57,7 +57,7 @@ const ProductCard = ({ product, onWishlistToggle, isWishlisted = false }) => {
   return (
     <div
       onClick={handleCardClick}
-      className="group relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col overflow-hidden"
+      className="group relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col overflow-hidden"
     >
       {/* Product Image */}
       <div className="relative w-full aspect-square bg-[#FFF9F9] flex items-center justify-center overflow-hidden">
@@ -73,7 +73,7 @@ const ProductCard = ({ product, onWishlistToggle, isWishlisted = false }) => {
           />
         ) : null}
         <div
-          className={`w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs font-medium ${
+          className={`w-full h-full flex items-center justify-center bg-[#FFF9F9] text-gray-400 text-xs font-medium ${
             imageSrc ? 'hidden' : 'flex'
           }`}
         >
@@ -85,14 +85,14 @@ const ProductCard = ({ product, onWishlistToggle, isWishlisted = false }) => {
           onClick={handleWishlistClick}
           type="button"
           aria-label="Wishlist"
-          className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 backdrop-blur-sm shadow hover:bg-white transition cursor-pointer text-[#C62828]"
+          className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 backdrop-blur-xs shadow-xs hover:bg-white transition cursor-pointer text-[#C62828]"
         >
           {isWishlisted ? (
-            <svg className="w-5 h-5 fill-[#C62828]" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 fill-[#C62828]" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 stroke-[#C62828] fill-none" viewBox="0 0 24 24" strokeWidth="2">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 stroke-[#C62828] fill-none" viewBox="0 0 24 24" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           )}
@@ -100,14 +100,14 @@ const ProductCard = ({ product, onWishlistToggle, isWishlisted = false }) => {
 
         {/* Stock badge if all out of stock */}
         {isAllOutOfStock && (
-          <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-red-600/90 text-white text-[11px] font-bold rounded">
+          <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-red-600/90 text-white text-[10px] sm:text-[11px] font-bold rounded-md">
             Out of Stock
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-4 flex flex-col flex-1">
+      <div className="p-3.5 sm:p-4 flex flex-col flex-1">
         {/* Rating */}
         <div className="flex items-center text-xs text-gray-500 mb-1">
           {product.reviewCount > 0 ? (
@@ -125,49 +125,58 @@ const ProductCard = ({ product, onWishlistToggle, isWishlisted = false }) => {
           {product.productName}
         </h3>
 
-        {/* Price */}
-        <div className="mt-auto pt-2 flex items-baseline justify-between">
-          <span className="text-sm sm:text-base font-bold text-[#C62828]">
-            {lowestPrice !== null ? `From ₹${lowestPrice}` : 'Price unavailable'}
-          </span>
-          {defaultVariant && (
-            <span className="text-[11px] text-gray-500">
-              {defaultVariant.weight}{defaultVariant.unit}
-            </span>
-          )}
-        </div>
+        {/* Price & Add Button Row */}
+        <div className="mt-auto pt-2 flex items-center justify-between gap-2">
+          <div>
+            <div className="text-sm sm:text-base font-black text-[#C62828]">
+              {lowestPrice !== null ? `From ₹${lowestPrice}` : 'Unavailable'}
+            </div>
+            {defaultVariant && (
+              <span className="text-[11px] text-gray-400 block -mt-0.5">
+                {defaultVariant.weight}{defaultVariant.unit}
+              </span>
+            )}
+          </div>
 
-        {/* Add to Cart button */}
-        <div className="mt-3 relative">
-          <button
-            onClick={handleAddToCart}
-            disabled={isAllOutOfStock || adding}
-            type="button"
-            className={`w-full py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition shadow-sm ${
-              isAllOutOfStock
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-[#C62828] hover:bg-[#8E1B1B] text-white active:scale-95'
-            }`}
-          >
-            {isAllOutOfStock
-              ? 'Out of Stock'
-              : adding
-              ? 'Adding...'
-              : 'Add to Cart'}
-          </button>
-
-          {/* Feedback popup/toast */}
-          {feedback && (
-            <div
-              className={`absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap shadow-md ${
-                feedback.type === 'success'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-red-600 text-white'
+          {/* Small red "Add" button */}
+          <div className="relative">
+            <button
+              onClick={handleAddToCart}
+              disabled={isAllOutOfStock || adding}
+              type="button"
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1 ${
+                isAllOutOfStock
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-[#C62828] hover:bg-[#8E1B1B] text-white active:scale-95'
               }`}
             >
-              {feedback.message}
-            </div>
-          )}
+              {isAllOutOfStock ? (
+                'Out'
+              ) : adding ? (
+                '...'
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Add</span>
+                </>
+              )}
+            </button>
+
+            {/* Feedback popup/toast */}
+            {feedback && (
+              <div
+                className={`absolute -top-7 right-0 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap shadow-md z-10 ${
+                  feedback.type === 'success'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-red-600 text-white'
+                }`}
+              >
+                {feedback.message}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

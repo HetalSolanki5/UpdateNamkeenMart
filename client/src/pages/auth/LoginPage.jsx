@@ -38,9 +38,16 @@ const LoginPage = () => {
     try {
       const user = await loginUser({ email, password, role });
       
-      // If wholesaler is pending/rejected/inactive, show note, but we redirect first if login is successful.
-      // We will redirect and handle unauthorized logic inside ProtectedRoutes.
-      navigate(`/${user.role}`);
+      // Navigate to the respective dashboard/portal based on role
+      const targetRole = user?.role || role;
+      if (targetRole === 'admin') {
+        navigate('/admin');
+      } else if (targetRole === 'wholesaler') {
+        navigate('/wholesaler');
+      } else {
+        // Customer navigates directly to Catalogue & Shop page
+        navigate('/customer/shop');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {

@@ -41,6 +41,7 @@ import WholesalerProfilePage from '../pages/wholesaler/WholesalerProfilePage.jsx
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import AdminDashboard from '../pages/admin/AdminDashboard.jsx';
 import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
+import AdminProductsPage from '../pages/admin/AdminProductsPage.jsx';
 import AdminOrdersPage from '../pages/admin/AdminOrdersPage.jsx';
 import AdminOrderDetailPage from '../pages/admin/AdminOrderDetailPage.jsx';
 import AdminWholesaleOrdersPage from '../pages/admin/AdminWholesaleOrdersPage.jsx';
@@ -125,6 +126,7 @@ const AppRoutes = () => {
         }
       >
         <Route index element={<AdminDashboard />} />
+        <Route path="products" element={<AdminProductsPage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="orders" element={<AdminOrdersPage />} />
         <Route path="orders/:id" element={<AdminOrderDetailPage />} />

@@ -136,20 +136,24 @@ const CheckoutPage = () => {
             return (
               <div key={step.id} className="relative z-10 flex flex-col items-center">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition shadow-sm ${
-                    isCompleted
-                      ? 'bg-[#8E1B1B] text-white'
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition shadow-xs ${isCompleted
+                      ? 'bg-[#C62828] text-white'
                       : isCurrent
-                      ? 'bg-[#C62828] text-white ring-4 ring-[#FDECEC]'
-                      : 'bg-white text-gray-400 border-2 border-gray-200'
-                  }`}
+                        ? 'bg-[#C62828] text-white ring-4 ring-[#FDECEC]'
+                        : 'bg-white text-gray-400 border-2 border-gray-200'
+                    }`}
                 >
-                  {isCompleted ? '✓' : step.id}
+                  {isCompleted ? (
+                    <svg className="w-4 h-4 stroke-white" fill="none" viewBox="0 0 24 24" strokeWidth="3">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    step.id
+                  )}
                 </div>
                 <span
-                  className={`text-[11px] font-semibold mt-1.5 hidden sm:block ${
-                    isCurrent ? 'text-[#C62828]' : isCompleted ? 'text-gray-700' : 'text-gray-400'
-                  }`}
+                  className={`text-[11px] font-semibold mt-1.5 hidden sm:block ${isCurrent ? 'text-[#C62828]' : isCompleted ? 'text-gray-700' : 'text-gray-400'
+                    }`}
                 >
                   {step.label}
                 </span>
@@ -298,21 +302,20 @@ const CheckoutPage = () => {
             <p className="text-xs text-gray-500">Choose how you would like to complete your order.</p>
           </div>
 
-          {/* Payment Method Options */}
-          <div className="space-y-3">
+          {/* Payment Method Options (4 equal-width bordered boxes) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {[
-              { id: 'upi', label: 'UPI (GPay / PhonePe / Paytm / BHIM)', desc: 'Instant verification' },
+              { id: 'upi', label: 'UPI', desc: 'GPay, PhonePe, Paytm, BHIM' },
               { id: 'card', label: 'Credit / Debit Card', desc: 'Visa, MasterCard, RuPay' },
               { id: 'netbanking', label: 'Net Banking', desc: 'All major Indian banks' },
-              { id: 'cod', label: 'Cash on Delivery (COD)', desc: 'Pay with cash upon package arrival' }
+              { id: 'cod', label: 'Cash on Delivery', desc: 'Pay cash upon delivery' }
             ].map((option) => (
               <label
                 key={option.id}
-                className={`flex items-start p-4 rounded-xl border cursor-pointer transition ${
-                  paymentMethod === option.id
-                    ? 'border-[#C62828] bg-[#FFF9F9] shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
+                className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === option.id
+                    ? 'border-[#C62828] bg-[#FDECEC] shadow-xs'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
               >
                 <input
                   type="radio"
@@ -323,7 +326,9 @@ const CheckoutPage = () => {
                   className="mt-1 text-[#C62828] focus:ring-[#C62828]"
                 />
                 <div className="ml-3">
-                  <span className="font-bold text-gray-900 text-sm block">{option.label}</span>
+                  <span className={`font-bold text-sm block ${paymentMethod === option.id ? 'text-[#8E1B1B]' : 'text-gray-900'}`}>
+                    {option.label}
+                  </span>
                   <span className="text-xs text-gray-500">{option.desc}</span>
                 </div>
               </label>
@@ -331,11 +336,10 @@ const CheckoutPage = () => {
           </div>
 
           {/* College Project Disclaimer */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
             <p className="font-bold mb-0.5">Note on Payment Simulation:</p>
             <p>
-              This is a simulated payment flow for academic evaluation of the MCA final-year project.
-              No real bank transaction or live payment gateway credentials are required.
+              This is simulated for demo purposes. No real bank transaction or live credentials are required.
             </p>
           </div>
 

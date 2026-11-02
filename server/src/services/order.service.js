@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import {
   Order,
@@ -12,21 +13,32 @@ import {
   User
 } from '../models/index.js';
 import { generateOrderNumber, generateInvoiceNumber } from '../utils/generateCode.js';
+import razorpay from '../config/razorpay.js';
+import { env } from '../config/env.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE HELPER — shared by createOrderFromCart, initiateRazorpayOrder, and
+// verifyAndCreateOrder to avoid duplicating cart validation logic three times.
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Core checkout business logic: validates address, verifies fresh stock & prices,
- * reduces stock, creates Order, OrderItems, Payment, Invoice, and clears cart.
+ * Validates the user's cart and computes the order total from fresh DB prices.
  *
- * NOTE ON STOCK TRANSACTIONS & ROLLBACK:
- * In production multi-server MongoDB setups, replica sets enable native multi-document
- * ACID transactions (session.startTransaction()). However, in single-node local MongoDB
- * environments (often used in student or local development setups without replica sets),
- * transactions throw "Transactions are not supported by this deployment".
- * Therefore, we implement a compensating rollback pattern: we keep track of all stock
- * reductions and, in case of any subsequent failure before checkout completion, we
- * immediately restore the reduced quantities back to the Stock collection.
+ * Checks:
+ *  1. User role is "customer".
+ *  2. Address exists in user.addresses.
+ *  3. Cart exists and is not empty.
+ *  4. Every cart item has an active variant and product.
+ *  5. Every cart item has sufficient stock available.
+ *
+ * Returns { freshUser, foundAddress, cart, cartItems, validatedItems, totalAmount }.
+ * Throws descriptive errors with .status set so controllers can forward them directly.
+ *
+ * NOTE: This function does NOT reduce stock. Stock reduction happens separately
+ * inside the actual order-creation step so we never reduce stock before we are
+ * sure we are going to create the order.
  */
-export const createOrderFromCart = async (user, { addressId, paymentMethod }) => {
+const validateCartAndComputeTotal = async (user, { addressId }) => {
   // 1. Double-check user role
   if (!user || user.role !== 'customer') {
     const err = new Error('Only customers can place orders.');
@@ -92,7 +104,9 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
 
     const available = (stock.availableQuantity || 0) - (stock.reservedQuantity || 0);
     if (available < item.quantity) {
-      const err = new Error(`Insufficient stock for ${variant.displayName || product.productName}. Available: ${available}, requested: ${item.quantity}`);
+      const err = new Error(
+        `Insufficient stock for ${variant.displayName || product.productName}. Available: ${available}, requested: ${item.quantity}`
+      );
       err.status = 400;
       throw err;
     }
@@ -112,6 +126,44 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
     });
   }
 
+  const totalAmount = validatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+
+  return { freshUser, foundAddress, cart, cartItems, validatedItems, totalAmount };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE HELPER — shared stock-reduce + Order/OrderItem/Payment/Invoice/Cart
+// clear logic used by both createOrderFromCart and verifyAndCreateOrder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Reduces stock, creates Order, OrderItems, Payment, Invoice, and clears the cart.
+ *
+ * @param {object} freshUser      - User document from DB
+ * @param {object} foundAddress   - Embedded address subdocument
+ * @param {object} cart           - Cart document
+ * @param {Array}  validatedItems - Items produced by validateCartAndComputeTotal
+ * @param {number} totalAmount    - Pre-computed total
+ * @param {object} paymentDetails - { method, status, transactionId }
+ * @returns {{ order, orderItems, payment, invoice }}
+ *
+ * NOTE ON STOCK TRANSACTIONS & ROLLBACK:
+ * In production multi-server MongoDB setups, replica sets enable native multi-document
+ * ACID transactions (session.startTransaction()). However, in single-node local MongoDB
+ * environments (often used in student or local development setups without replica sets),
+ * transactions throw "Transactions are not supported by this deployment".
+ * Therefore, we implement a compensating rollback pattern: we keep track of all stock
+ * reductions and, in case of any subsequent failure before checkout completion, we
+ * immediately restore the reduced quantities back to the Stock collection.
+ */
+const reduceStockAndCreateDocuments = async (
+  freshUser,
+  foundAddress,
+  cart,
+  validatedItems,
+  totalAmount,
+  paymentDetails
+) => {
   // Track reduced stocks for compensating rollback in case of subsequent errors
   const reducedStocks = [];
 
@@ -126,8 +178,7 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
       });
     }
 
-    // 6. Compute totals
-    const totalAmount = validatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    // 6. Compute delivery charge
     const deliveryCharge = 0; // Fixed flat placeholder
 
     // 7. Create Order document
@@ -153,7 +204,7 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
       totalAmount,
       deliveryCharge,
       orderStatus: 'placed',
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid'
+      paymentStatus: paymentDetails.status === 'success' ? 'paid' : 'pending'
     });
 
     // 8. Create OrderItems
@@ -169,15 +220,14 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
 
     const orderItems = await OrderItem.insertMany(orderItemsToCreate);
 
-    // 9. Create Payment document (simulated transaction)
-    const transactionId = `TXN-${Date.now()}`;
+    // 9. Create Payment document
     const payment = await Payment.create({
       orderId: order._id,
       userId: freshUser._id,
       amount: totalAmount,
-      method: paymentMethod,
-      status: paymentMethod === 'cod' ? 'pending' : 'success',
-      transactionId
+      method: paymentDetails.method,
+      status: paymentDetails.status,
+      transactionId: paymentDetails.transactionId
     });
 
     // 10. Create Invoice document
@@ -193,15 +243,10 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
     // 11. Clear Cart
     await CartItem.deleteMany({ cartId: cart._id });
 
-    // 13. Return all created documents
-    return {
-      order,
-      orderItems,
-      payment,
-      invoice
-    };
+    // 12. Return all created documents
+    return { order, orderItems, payment, invoice };
   } catch (error) {
-    // 12. Compensating rollback: restore reduced stock if any DB creation step failed
+    // Compensating rollback: restore reduced stock if any DB creation step failed
     console.error('Error during checkout execution. Rolling back reduced stock...', error);
     for (const reduced of reducedStocks) {
       try {
@@ -215,6 +260,152 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
     throw error;
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC EXPORTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Core checkout business logic for COD and (previously) simulated online payments.
+ * COD continues to call this function directly — its behavior is unchanged.
+ *
+ * For online payments (upi/card/netbanking), the frontend should instead call
+ * initiateRazorpayOrder + verifyAndCreateOrder (Phase 5D-A two-step flow).
+ */
+export const createOrderFromCart = async (user, { addressId, paymentMethod }) => {
+  // Validate cart and compute total using the shared helper
+  const { freshUser, foundAddress, cart, validatedItems, totalAmount } =
+    await validateCartAndComputeTotal(user, { addressId });
+
+  // Build payment details: COD is always "pending", simulated online is "success"
+  const paymentDetails = {
+    method: paymentMethod,
+    status: paymentMethod === 'cod' ? 'pending' : 'success',
+    transactionId: `TXN-${Date.now()}` // simulated transaction id for COD / old flow
+  };
+
+  return reduceStockAndCreateDocuments(freshUser, foundAddress, cart, validatedItems, totalAmount, paymentDetails);
+};
+
+/**
+ * PHASE 5D-A — STEP 1: Initiate a real Razorpay payment order.
+ *
+ * This function validates the cart and creates a Razorpay order WITHOUT writing
+ * anything to MongoDB. The frontend uses the returned razorpayOrderId to open the
+ * Razorpay checkout popup and collect payment details from the customer.
+ *
+ * Stock is NOT reduced here. Order/Payment/Invoice documents are NOT created here.
+ * Everything happens only after signature verification in verifyAndCreateOrder.
+ *
+ * @param {object} user       - Authenticated user (req.user)
+ * @param {object} params     - { addressId }
+ * @returns {{ razorpayOrderId, amount, currency, addressId }}
+ */
+export const initiateRazorpayOrder = async (user, { addressId }) => {
+  // Validate cart and compute total (no stock reduction, no DB writes)
+  const { totalAmount } = await validateCartAndComputeTotal(user, { addressId });
+
+  // Create a Razorpay order on Razorpay's servers.
+  // amount is in paise (1 INR = 100 paise), so multiply by 100.
+  // receipt is a short unique string we send to Razorpay for our own reference.
+  const receipt = `rcpt_${Date.now()}`;
+
+  const razorpayOrder = await razorpay.orders.create({
+    amount: Math.round(totalAmount * 100), // paise
+    currency: 'INR',
+    receipt,
+  });
+
+  // Return everything the frontend needs to open the Razorpay checkout widget.
+  // We do NOT persist anything to our MongoDB at this point.
+  return {
+    razorpayOrderId: razorpayOrder.id,
+    amount: totalAmount,       // in rupees (for display), not paise
+    currency: 'INR',
+    addressId,                 // pass back so the frontend includes it in the verify call
+  };
+};
+
+/**
+ * PHASE 5D-A — STEP 2: Verify Razorpay payment signature, then create the order.
+ *
+ * This is called AFTER the customer completes payment in the Razorpay popup.
+ * Razorpay sends razorpay_order_id, razorpay_payment_id, and razorpay_signature
+ * back to the frontend, which forwards them here.
+ *
+ * ─── WHY WE VERIFY ON THE BACKEND WITH THE SECRET KEY ───────────────────────
+ * Razorpay generates a signature = HMAC-SHA256(order_id + "|" + payment_id, SECRET).
+ * Only Razorpay and our server know the secret key, so only a genuine Razorpay
+ * payment can produce a matching signature. If we skipped this check and trusted
+ * the frontend's claim that payment succeeded, any malicious user could send a
+ * fake razorpay_payment_id and get an order for free. The signature check is the
+ * single source of truth that payment was real and not forged.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * @param {object} user   - Authenticated user (req.user)
+ * @param {object} params - { addressId, razorpay_order_id, razorpay_payment_id, razorpay_signature }
+ * @returns {{ order, orderItems, payment, invoice }} — same shape as createOrderFromCart
+ */
+export const verifyAndCreateOrder = async (
+  user,
+  { addressId, razorpay_order_id, razorpay_payment_id, razorpay_signature }
+) => {
+  // ── Signature verification ────────────────────────────────────────────────
+  // Razorpay's specification: signature = HMAC-SHA256(order_id + "|" + payment_id, key_secret)
+  // We compute it ourselves using the secret key (which never leaves the server)
+  // and compare with what Razorpay sent. If they match, the payment is genuine.
+  const expectedSignature = crypto
+    .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
+
+  if (expectedSignature !== razorpay_signature) {
+    // Signatures do not match — this payment was tampered with or is fake.
+    // Never create an order in this case.
+    const err = new Error('Payment verification failed. Invalid payment signature.');
+    err.status = 400;
+    throw err;
+  }
+  // ── End signature verification ────────────────────────────────────────────
+
+  // Re-validate cart and stock at this point.
+  // IMPORTANT TRADE-OFF (known edge case in real e-commerce):
+  // There is a window between the time the customer initiated payment (step 1)
+  // and now (step 2) during which another customer could buy the last unit.
+  // If that happened, we must NOT silently mark the payment as lost — instead we
+  // throw an error asking the customer to contact support so a manual refund can
+  // be processed. Building automatic refund automation is outside the scope of
+  // this college project, but in a production system you would call Razorpay's
+  // refund API here: razorpay.payments.refund(razorpay_payment_id, { amount }).
+  const { freshUser, foundAddress, cart, validatedItems, totalAmount } =
+    await validateCartAndComputeTotal(user, { addressId }).catch((stockErr) => {
+      // Enhance the error message so the customer knows to contact support
+      if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
+        stockErr.message =
+          `${stockErr.message}. ` +
+          'Your Razorpay payment was captured but stock ran out before your order could be confirmed. ' +
+          'Please contact support with your payment ID: ' + razorpay_payment_id +
+          ' and we will process a refund for you.';
+      }
+      throw stockErr;
+    });
+
+  // Build payment details using the REAL Razorpay payment ID.
+  // We use "online" as a generic method since determining the exact sub-method
+  // (upi/card/netbanking) would require an extra Razorpay API call (fetch payment
+  // by id) which is unnecessary overhead for this phase.
+  const paymentDetails = {
+    method: 'online',   // generic; Phase 5D-B can enrich this if needed
+    status: 'success',  // signature verified → payment is real
+    transactionId: razorpay_payment_id // the real Razorpay payment ID, not a fake TXN-timestamp
+  };
+
+  return reduceStockAndCreateDocuments(freshUser, foundAddress, cart, validatedItems, totalAmount, paymentDetails);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OTHER EXPORTS (unchanged from previous phases)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Helper to fetch complete order details with OrderItems, Payment, and Invoice,
@@ -257,3 +448,5 @@ export const getOrderFullDetails = async (orderId, requestingUser) => {
     invoice: invoice || null
   };
 };
+
+

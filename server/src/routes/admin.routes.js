@@ -37,11 +37,53 @@ import {
   releaseStock
 } from '../controllers/admin/adminStock.controller.js';
 import { getAuditLogs } from '../controllers/admin/adminAuditLog.controller.js';
+import { getDashboardSummary } from '../controllers/admin/adminDashboard.controller.js';
+import {
+  getAdminOrders,
+  getAdminOrderById,
+  getAdminWholesaleOrders,
+  getAdminWholesaleOrderById,
+  updateAdminWholesaleOrderStatus
+} from '../controllers/admin/adminOrder.controller.js';
+import {
+  getAdminReviews,
+  approveReview,
+  hideReview,
+  deleteReview
+} from '../controllers/admin/adminReview.controller.js';
+import { getAdminReports } from '../controllers/admin/adminReport.controller.js';
 
 const router = express.Router();
 
 // Apply protect and authorize('admin') to all admin endpoints in this router
 router.use(protect, authorize('admin'));
+
+// ==========================================
+// Part A: Admin Dashboard Summary
+// ==========================================
+router.get('/dashboard', getDashboardSummary);
+
+// ==========================================
+// Part A2: Admin Orders & Wholesale Orders
+// ==========================================
+router.get('/orders', getAdminOrders);
+router.get('/orders/:id', getAdminOrderById);
+router.get('/wholesale-orders', getAdminWholesaleOrders);
+router.get('/wholesale-orders/:id', getAdminWholesaleOrderById);
+router.put('/wholesale-orders/:id/status', updateAdminWholesaleOrderStatus);
+
+// ==========================================
+// Part A3: Admin Reviews Moderation
+// ==========================================
+router.get('/reviews', getAdminReviews);
+router.put('/reviews/:id/approve', approveReview);
+router.put('/reviews/:id/hide', hideReview);
+router.delete('/reviews/:id', deleteReview);
+
+// ==========================================
+// Part A4: Admin Reports & Analytics
+// ==========================================
+router.get('/reports', getAdminReports);
 
 // ==========================================
 // Part B: Controlled Admin Creation

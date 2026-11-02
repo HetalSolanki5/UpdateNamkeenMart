@@ -247,10 +247,10 @@ const ProductDetailPage = () => {
           </div>
 
           {/* Price & Stock Status */}
-          <div className="p-4 bg-[#FFF9F9] rounded-xl border border-gray-100 mb-6 flex items-center justify-between">
+          <div className="p-4 bg-[#FFF9F9] rounded-2xl border border-gray-100 mb-6 flex items-center justify-between">
             <div>
               <span className="text-xs text-gray-500 block">Selling Price</span>
-              <span className="text-2xl sm:text-3xl font-black text-[#C62828]">
+              <span className="text-3xl font-black text-[#C62828]">
                 {selectedVariant ? `₹${selectedVariant.sellingPrice}` : 'Select Variant'}
               </span>
             </div>
@@ -258,15 +258,15 @@ const ProductDetailPage = () => {
             {/* Stock status badge */}
             <div>
               {isOutOfStock ? (
-                <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                <span className="px-3.5 py-1.5 bg-red-100 text-[#C62828] text-xs font-bold rounded-full">
                   Out of Stock
                 </span>
               ) : isLowStock ? (
-                <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
+                <span className="px-3.5 py-1.5 bg-amber-100 text-[#BA7517] text-xs font-bold rounded-full">
                   Low Stock
                 </span>
               ) : (
-                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">
+                <span className="px-3.5 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">
                   In Stock
                 </span>
               )}
@@ -285,15 +285,16 @@ const ProductDetailPage = () => {
                 return (
                   <button
                     key={v._id}
+                    type="button"
                     onClick={() => setSelectedVariant(v)}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition ${
+                    className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition cursor-pointer ${
                       isSelected
-                        ? 'border-[#C62828] bg-[#FDECEC] text-[#C62828]'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        ? 'bg-[#C62828] text-white shadow-sm'
+                        : 'bg-white border border-[#FDECEC] text-[#8E1B1B] hover:bg-[#FDECEC]'
                     } ${outStock ? 'opacity-50' : ''}`}
                   >
                     <span>{v.displayName || `${v.weight}${v.unit}`}</span>
-                    <span className="text-xs ml-1.5 opacity-80">(₹{v.sellingPrice})</span>
+                    <span className="text-xs ml-1.5 opacity-90">(₹{v.sellingPrice})</span>
                   </button>
                 );
               })}
@@ -306,21 +307,23 @@ const ProductDetailPage = () => {
               Quantity
             </label>
             <div className="flex items-center space-x-3">
-              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-white">
+              <div className="flex items-center border border-gray-200 rounded-full px-1 py-0.5 bg-white shadow-xs">
                 <button
+                  type="button"
                   disabled={quantity <= 1 || isOutOfStock}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="px-3.5 py-1.5 text-gray-600 hover:bg-gray-100 font-bold disabled:opacity-40"
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 font-bold disabled:opacity-30 cursor-pointer"
                 >
-                  -
+                  −
                 </button>
-                <span className="px-4 py-1.5 text-sm font-bold text-gray-800 min-w-[2.5rem] text-center">
+                <span className="px-3 text-sm font-bold text-gray-800 min-w-[2.5rem] text-center">
                   {quantity}
                 </span>
                 <button
+                  type="button"
                   disabled={quantity >= 20 || isOutOfStock}
                   onClick={() => setQuantity((q) => Math.min(20, q + 1))}
-                  className="px-3.5 py-1.5 text-gray-600 hover:bg-gray-100 font-bold disabled:opacity-40"
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 font-bold disabled:opacity-30 cursor-pointer"
                 >
                   +
                 </button>
@@ -330,26 +333,44 @@ const ProductDetailPage = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto pt-4">
-            <button
-              onClick={handleAddToCart}
-              disabled={isOutOfStock || addingToCart}
-              className={`py-3 px-6 rounded-xl font-bold text-sm transition shadow-sm ${
-                isOutOfStock
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-[#C62828] hover:bg-[#8E1B1B] text-white active:scale-98'
-              }`}
-            >
-              {addingToCart ? 'Adding...' : 'Add to Cart'}
-            </button>
+          <div className="flex flex-col space-y-3 mt-auto pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Add to wishlist */}
+              <button
+                type="button"
+                onClick={handleWishlistToggle}
+                className="py-3 px-4 rounded-xl font-bold text-sm border-2 border-[#C62828] text-[#C62828] hover:bg-[#FDECEC] transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <svg className={`w-5 h-5 ${isWishlisted ? 'fill-[#C62828]' : 'stroke-[#C62828] fill-none'}`} viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span>{isWishlisted ? 'In Wishlist' : 'Add to Wishlist'}</span>
+              </button>
 
+              {/* Add to cart */}
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={isOutOfStock || addingToCart}
+                className={`py-3 px-6 rounded-xl font-bold text-sm transition shadow-sm cursor-pointer ${
+                  isOutOfStock
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-[#C62828] hover:bg-[#8E1B1B] text-white active:scale-98'
+                }`}
+              >
+                {addingToCart ? 'Adding...' : 'Add to Cart'}
+              </button>
+            </div>
+
+            {/* Buy now */}
             <button
+              type="button"
               onClick={handleBuyNow}
               disabled={isOutOfStock || addingToCart}
-              className={`py-3 px-6 rounded-xl font-bold text-sm border transition ${
+              className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white transition shadow-sm cursor-pointer ${
                 isOutOfStock
-                  ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'border-[#C62828] text-[#C62828] hover:bg-[#FDECEC] active:scale-98'
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-[#8E1B1B] hover:bg-[#701515] active:scale-98'
               }`}
             >
               Buy Now

@@ -1,30 +1,26 @@
+
 import express from 'express';
-import { 
-  registerCustomer, 
-  registerWholesaler, 
-  login, 
-  logout, 
-  getMe,
-  customerOnly,
-  wholesalerOnly,
-  adminOnly
-} from '../controllers/auth.controller.js';
-import { protect } from '../middleware/auth.js';
-import { authorize } from '../middleware/role.js';
-import { validate } from '../middleware/validate.js';
-import { registerCustomerRules, registerWholesalerRules, loginRules } from '../validators/auth.validator.js';
+import authController from '../controllers/authController.js';
 
 const router = express.Router();
 
-router.post('/register/customer', registerCustomerRules, validate, registerCustomer);
-router.post('/register/wholesaler', registerWholesalerRules, validate, registerWholesaler);
-router.post('/login', loginRules, validate, login);
-router.post('/logout', logout);
-router.get('/me', protect, getMe);
+router.post('/register', (req, res, next) => {
+  req.body.role = req.body.role || 'customer';
+  next();
+}, authController.register);
 
-// Test role routes
-router.get('/test/customer', protect, authorize('customer'), customerOnly);
-router.get('/test/wholesaler', protect, authorize('wholesaler'), wholesalerOnly);
-router.get('/test/admin', protect, authorize('admin'), adminOnly);
+router.post('/register/customer', (req, res, next) => {
+  req.body.role = 'customer';
+  next();
+}, authController.register);
+
+router.post('/register/wholesaler', (req, res, next) => {
+  req.body.role = 'wholesaler';
+  next();
+}, authController.register);
+
+router.post('/login', authController.login);
+
+router.get('/me', authController.getMe);
 
 export default router;
