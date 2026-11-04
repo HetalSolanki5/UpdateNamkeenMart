@@ -7,7 +7,7 @@ export const registerUser = async (data, requestedRole = 'customer') => {
   const { name, email, phone, password } = data;
 
   if (!name || !email || !phone || !password) {
-    throw new Error('Name, email, phone and password are required');
+    throw new Error('Name, email, phone and password are required new error');
   }
 
   if (typeof password !== 'string' || password.length < 8) {
