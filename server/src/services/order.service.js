@@ -437,16 +437,16 @@ export const verifyAndCreateOrder = async (
     cartDiscountAmount,
     appliedCartOfferName
   } = await validateCartAndComputeTotal(user, { addressId }).catch((stockErr) => {
-      // Enhance the error message so the customer knows to contact support
-      if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
-        stockErr.message =
-          `${stockErr.message}. ` +
-          'Your Razorpay payment was captured but stock ran out before your order could be confirmed. ' +
-          'Please contact support with your payment ID: ' + razorpay_payment_id +
-          ' and we will process a refund for you.';
-      }
-      throw stockErr;
-    });
+    // Enhance the error message so the customer knows to contact support
+    if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
+      stockErr.message =
+        `${stockErr.message}. ` +
+        'Your Razorpay payment was captured but stock ran out before your order could be confirmed. ' +
+        'Please contact support with your payment ID: ' + razorpay_payment_id +
+        ' and we will process a refund for you.';
+    }
+    throw stockErr;
+  });
 
   // Build payment details using the REAL Razorpay payment ID.
   // We use "online" as a generic method since determining the exact sub-method

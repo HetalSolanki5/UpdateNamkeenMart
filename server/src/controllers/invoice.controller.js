@@ -123,10 +123,10 @@ export const getMyInvoices = async (req, res, next) => {
       totalAmount: inv.totalAmount,
       order: inv.orderId
         ? {
-            _id: inv.orderId._id,
-            orderNumber: inv.orderId.orderNumber,
-            orderStatus: inv.orderId.orderStatus
-          }
+          _id: inv.orderId._id,
+          orderNumber: inv.orderId.orderNumber,
+          orderStatus: inv.orderId.orderStatus
+        }
         : null
     }));
 
