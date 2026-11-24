@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
 import { getAddresses, addAddress } from '../../api/addressApi.js';
-import { placeOrder } from '../../api/orderApi.js';
+import { placeOrder, initiateCheckout, verifyPayment } from '../../api/orderApi.js';
 import AddressCard from '../../components/AddressCard.jsx';
 import AddressForm from '../../components/AddressForm.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -17,6 +18,7 @@ const STEPS = [
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { cart, refreshCart } = useCart();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -77,7 +79,7 @@ const CheckoutPage = () => {
     }
   };
 
-  // Place order
+  // Place order handler (Phase 5D-B: COD direct instant order vs Online Razorpay widget flow)
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
       setPlaceOrderError('Please select a delivery address.');
@@ -88,19 +90,99 @@ const CheckoutPage = () => {
     setPlacing(true);
     setPlaceOrderError(null);
 
+    // Case A: Cash on Delivery (COD) — instant simulated checkout
+    if (paymentMethod === 'cod') {
+      try {
+        const result = await placeOrder(selectedAddressId, 'cod');
+        setPlacedOrderData(result);
+        setCurrentStep(4);
+        await refreshCart();
+      } catch (err) {
+        setPlaceOrderError(
+          err.response?.data?.message || 'Failed to place order. Please check stock or try again.'
+        );
+      } finally {
+        setPlacing(false);
+      }
+      return;
+    }
+
+    // Case B: Online Payment (UPI, Card, Net Banking) via official Razorpay Checkout widget
     try {
-      const result = await placeOrder(selectedAddressId, paymentMethod);
-      setPlacedOrderData(result);
-      // Advance to confirmation step
-      setCurrentStep(4);
-      // Refresh cart to update navbar badge to 0
-      await refreshCart();
+      const response = await initiateCheckout(selectedAddressId, paymentMethod);
+
+      // Verify window.Razorpay is loaded from https://checkout.razorpay.com/v1/checkout.js
+      if (!window.Razorpay) {
+        setPlaceOrderError('Razorpay checkout SDK failed to load. Please check your internet connection.');
+        setPlacing(false);
+        return;
+      }
+
+      /**
+       * NOTE ON UPI QR CODE:
+       * Razorpay's standard checkout popup automatically renders UPI (with QR code to scan
+       * via GPay, PhonePe, Paytm, BHIM, or any UPI app), Cards, and Net Banking tabs.
+       * No separate custom QR code canvas or external component is required — it is fully
+       * integrated inside this widget.
+       */
+      const options = {
+        key: response.keyId,
+        amount: response.amount * 100, // in paise
+        currency: response.currency || 'INR',
+        name: 'Rameshwar Namkeen',
+        description: 'Order Payment',
+        order_id: response.razorpayOrderId,
+        handler: async function (razorpayResponse) {
+          // razorpayResponse contains: razorpay_order_id, razorpay_payment_id, razorpay_signature
+          try {
+            const verificationResult = await verifyPayment(selectedAddressId, razorpayResponse);
+            setPlacedOrderData(verificationResult);
+            setCurrentStep(4);
+            await refreshCart();
+          } catch (verifyErr) {
+            // Distinguish post-payment verification failure vs pre-order validation failure
+            const errMsg = verifyErr.response?.data?.message;
+            if (verifyErr.response?.status === 400 && errMsg?.includes('Invalid payment signature')) {
+              setPlaceOrderError('Payment verification failed: invalid signature. Please contact support.');
+            } else {
+              setPlaceOrderError(
+                errMsg || 'Payment was received but order verification failed. Please contact support with your payment reference.'
+              );
+            }
+          } finally {
+            setPlacing(false);
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || '',
+          contact: user?.phone || ''
+        },
+        theme: {
+          color: '#C62828' // brand red
+        },
+        modal: {
+          ondismiss: function () {
+            // User closed the popup without paying — neutral notice, stay on Step 3, do NOT create an order
+            setPlacing(false);
+            setPlaceOrderError('Payment was cancelled. You can try again.');
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (failureResponse) {
+        setPlacing(false);
+        setPlaceOrderError(
+          failureResponse?.error?.description || 'Payment transaction failed. Please try again or choose another method.'
+        );
+      });
+      rzp.open();
     } catch (err) {
-      setPlaceOrderError(
-        err.response?.data?.message || 'Failed to place order. Please check stock or try again.'
-      );
-    } finally {
       setPlacing(false);
+      setPlaceOrderError(
+        err.response?.data?.message || 'Failed to initiate payment. Please check stock or try again.'
+      );
     }
   };
 
@@ -118,7 +200,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto py-8 space-y-6">
       {/* Step Indicator Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between max-w-2xl mx-auto relative">
@@ -264,6 +346,12 @@ const CheckoutPage = () => {
               <span>Items Subtotal</span>
               <span className="font-semibold text-gray-900">₹{cart?.subtotal}</span>
             </div>
+            {cart?.cartOfferName && cart?.cartDiscountAmount > 0 && (
+              <div className="flex justify-between text-emerald-700 font-bold text-xs bg-emerald-50 p-2 rounded-lg">
+                <span>Bulk Discount ({cart.cartOfferName}):</span>
+                <span>-₹{cart.cartDiscountAmount}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>Delivery Charge</span>
               <span className="font-semibold text-emerald-600">
@@ -335,11 +423,15 @@ const CheckoutPage = () => {
             ))}
           </div>
 
-          {/* College Project Disclaimer */}
+          {/* Disclaimer / Notice */}
           <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-            <p className="font-bold mb-0.5">Note on Payment Simulation:</p>
+            <p className="font-bold mb-0.5">
+              {paymentMethod === 'cod' ? 'Note on Cash on Delivery:' : 'Razorpay Sandbox Mode:'}
+            </p>
             <p>
-              This is simulated for demo purposes. No real bank transaction or live credentials are required.
+              {paymentMethod === 'cod'
+                ? 'Pay cash upon delivery. Your order is confirmed immediately upon clicking Place Order.'
+                : 'UPI QR code scanning, test cards, and net banking are powered via the official Razorpay test mode widget. No real money is deducted.'}
             </p>
           </div>
 

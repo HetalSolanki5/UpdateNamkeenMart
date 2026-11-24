@@ -20,6 +20,8 @@ const orderSchema = new mongoose.Schema({
   },
   totalAmount: { type: Number },
   deliveryCharge: { type: Number, default: 0 },
+  appliedCartOfferName: { type: String, default: null },
+  cartDiscountAmount: { type: Number, default: 0 },
   orderStatus: {
     type: String,
     enum: ['placed', 'confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'],

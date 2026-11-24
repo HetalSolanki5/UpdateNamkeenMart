@@ -3,8 +3,7 @@ import React from 'react';
 const FilterSidebar = ({ categories = [], filters, onChange, onClear }) => {
   const weightOptions = [
     { value: '200', label: '200g' },
-    { value: '500', label: '500g' },
-    { value: '1000', label: '1kg' }
+    { value: '500', label: '500g' }
   ];
 
   // Weight handler for single or multiple selection

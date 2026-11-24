@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { getMyOrders } from '../../api/orderApi.js';
-import { getWishlist } from '../../api/wishlistApi.js';
 import { getAddresses } from '../../api/addressApi.js';
 import { useCart } from '../../context/CartContext.jsx';
 
@@ -13,7 +12,6 @@ const CustomerHome = () => {
 
   const [stats, setStats] = useState({
     totalOrders: 0,
-    wishlistCount: 0,
     addressCount: 0,
     recentOrders: []
   });
@@ -23,21 +21,17 @@ const CustomerHome = () => {
     const fetchDashboardData = async () => {
       setLoadingStats(true);
       try {
-        const [ordersRes, wishRes, addrRes] = await Promise.allSettled([
+        const [ordersRes, addrRes] = await Promise.allSettled([
           getMyOrders(1, 4),
-          getWishlist(),
           getAddresses()
         ]);
 
         const orders = ordersRes.status === 'fulfilled' ? ordersRes.value?.orders || [] : [];
         const totalOrders = ordersRes.status === 'fulfilled' ? (ordersRes.value?.totalResults || orders.length) : 0;
-        
-        const wishItems = wishRes.status === 'fulfilled' ? (wishRes.value?.items || wishRes.value?.wishlist || []) : [];
         const addrList = addrRes.status === 'fulfilled' ? (addrRes.value?.addresses || []) : [];
 
         setStats({
           totalOrders,
-          wishlistCount: wishItems.length,
           addressCount: addrList.length,
           recentOrders: orders
         });
@@ -78,7 +72,7 @@ const CustomerHome = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-5xl mx-auto py-8 space-y-6">
       {/* Welcome Banner Card */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div className="flex items-center space-x-4">
@@ -120,7 +114,7 @@ const CustomerHome = () => {
       </div>
 
       {/* Quick Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Orders */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
@@ -154,24 +148,6 @@ const CustomerHome = () => {
           </div>
           <Link to="/customer/cart" className="text-[11px] font-semibold text-[#C62828] hover:underline mt-1 inline-block">
             Proceed to checkout &rarr;
-          </Link>
-        </div>
-
-        {/* Wishlist Items */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500">Wishlist</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FDECEC] text-[#C62828] flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-3 text-2xl font-black text-gray-900">
-            {loadingStats ? '...' : stats.wishlistCount}
-          </div>
-          <Link to="/customer/wishlist" className="text-[11px] font-semibold text-[#C62828] hover:underline mt-1 inline-block">
-            View saved items &rarr;
           </Link>
         </div>
 
@@ -266,7 +242,7 @@ const CustomerHome = () => {
       </div>
 
       {/* Navigation Quick Links Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Catalogue & Shop */}
         <Link
           to="/customer/shop"
@@ -319,24 +295,6 @@ const CustomerHome = () => {
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             Manage your home and work delivery locations.
-          </p>
-        </Link>
-
-        {/* Wishlist */}
-        <Link
-          to="/customer/wishlist"
-          className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-[#C62828] hover:shadow-md transition group flex flex-col"
-        >
-          <div className="w-10 h-10 rounded-xl bg-[#FDECEC] text-[#C62828] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform mb-3">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </div>
-          <h3 className="font-bold text-gray-900 text-sm group-hover:text-[#C62828] transition-colors">
-            Saved Wishlist
-          </h3>
-          <p className="text-xs text-gray-500 mt-1">
-            Quick-buy and review your favorite namkeens.
           </p>
         </Link>
       </div>

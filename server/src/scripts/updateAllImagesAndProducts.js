@@ -92,9 +92,9 @@ const productCatalog = [
     description: 'Festive gift combo pack containing assorted namkeens, sweets, and sev.',
     ingredients: 'Assorted namkeens, sweets, dry fruits',
     image: '/images/products/gift-combos.jpg',
-    weight: 1000,
-    price: 499,
-    wholesalePrice: 390,
+    weight: 500,
+    price: 299,
+    wholesalePrice: 240,
     qty: 50
   },
   {

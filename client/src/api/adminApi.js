@@ -141,3 +141,57 @@ export const updateAdminStock = async (variantId, data) => {
   const response = await axiosClient.put(`/admin/stock/${variantId}`, data);
   return response.data;
 };
+
+/**
+ * Get all admin offers with optional status filter (GET /api/admin/offers?status=active|upcoming|expired|all)
+ * @param {Object} params - { status: 'all' | 'active' | 'upcoming' | 'expired' }
+ * @returns {Promise<{ offers: Array, total: number }>}
+ */
+export const getAdminOffers = async (params = {}) => {
+  const url = buildUrlWithParams('/admin/offers', params);
+  const response = await axiosClient.get(url);
+  return response.data;
+};
+
+/**
+ * Create a new offer (POST /api/admin/offers)
+ * @param {Object} data - { offerName, description, discountType, discountValue, applicableTo, categoryId, productIds, startDate, endDate, isActive }
+ * @returns {Promise<{ message: string, offer: Object }>}
+ */
+export const createAdminOffer = async (data) => {
+  const response = await axiosClient.post('/admin/offers', data);
+  return response.data;
+};
+
+/**
+ * Update an existing offer (PUT /api/admin/offers/:id)
+ * @param {string} id
+ * @param {Object} data
+ * @returns {Promise<{ message: string, offer: Object }>}
+ */
+export const updateAdminOffer = async (id, data) => {
+  const response = await axiosClient.put(`/admin/offers/${id}`, data);
+  return response.data;
+};
+
+/**
+ * Delete an offer (DELETE /api/admin/offers/:id)
+ * @param {string} id
+ * @returns {Promise<{ message: string }>}
+ */
+export const deleteAdminOffer = async (id) => {
+  const response = await axiosClient.delete(`/admin/offers/${id}`);
+  return response.data;
+};
+
+/**
+ * Toggle offer active status (PUT /api/admin/offers/:id/active)
+ * @param {string} id
+ * @param {boolean} isActive
+ * @returns {Promise<{ message: string, offer: Object }>}
+ */
+export const toggleAdminOfferActive = async (id, isActive) => {
+  const response = await axiosClient.put(`/admin/offers/${id}/active`, { isActive });
+  return response.data;
+};
+

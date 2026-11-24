@@ -28,6 +28,21 @@ export const getInvoiceData = async (orderId, user) => {
     orderId: order._id,
     orderNumber: order.orderNumber,
     invoiceDate: invoice ? invoice.invoiceDate : order.createdAt,
+    // Phase 12C: "Billed By" seller details and "Shipped To" delivery address
+    billedBy: {
+      name: 'Rameshwar Namkeen',
+      tagline: 'Authentic Taste of Gujarat',
+      address: 'Plot No. 12, GIDC Industrial Estate, Rajkot, Gujarat - 360003',
+      phone: '+91 98765 43210',
+      email: 'sales@ramshewarnamkeen.com',
+      gstin: '24AAACR1234M1Z5'
+    },
+    shippedTo: {
+      receiverName: addr.receiverName || order.customerSnapshot?.name || user.name || 'Valued Customer',
+      phone: addr.phoneNumber || order.customerSnapshot?.phone || user.phone || 'N/A',
+      address: formattedAddress || 'Address on file'
+    },
+    // Retain top-level address/phone/customerName for backwards compatibility if needed
     customerName: addr.receiverName || order.customerSnapshot?.name || user.name,
     phone: addr.phoneNumber || order.customerSnapshot?.phone || user.phone,
     address: formattedAddress || 'Address on file',
@@ -36,9 +51,12 @@ export const getInvoiceData = async (orderId, user) => {
       variant: it.variantSnapshot || 'Standard Pack',
       quantity: it.quantity || 1,
       unitPrice: it.unitPrice || 0,
-      subtotal: it.subtotal || 0
+      subtotal: it.subtotal || 0,
+      appliedOfferName: it.appliedOfferName || null
     })),
     deliveryCharge: order.deliveryCharge || 0,
+    appliedCartOfferName: order.appliedCartOfferName || null,
+    cartDiscountAmount: order.cartDiscountAmount || 0,
     totalAmount: order.totalAmount || 0,
     paymentMethod: payment ? payment.method : 'N/A',
     paymentStatus: payment ? payment.status : order.paymentStatus

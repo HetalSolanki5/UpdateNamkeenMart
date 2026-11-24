@@ -14,6 +14,7 @@ import Review from './Review.js';
 import WholesaleOrder from './WholesaleOrder.js';
 import WholesaleOrderItem from './WholesaleOrderItem.js';
 import AuditLog from './AuditLog.js';
+import Offer from './Offer.js';
 
 export {
   User,
@@ -31,5 +32,6 @@ export {
   Review,
   WholesaleOrder,
   WholesaleOrderItem,
-  AuditLog
+  AuditLog,
+  Offer
 };

@@ -7,6 +7,13 @@ const productSchema = new mongoose.Schema({
   ingredients: { type: String },
   nutritionalInformation: { type: String },
   productImages: [{ type: String }],
+  productRange: {
+    type: String,
+    enum: ['regular', 'diet'],
+    required: true,
+    default: 'regular',
+    index: true
+  },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

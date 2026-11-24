@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Product, Variant, Stock, Review, Category } from '../models/index.js';
+import { getActiveOfferForProduct, applyDiscount } from '../utils/offerCalculator.js';
 
 /**
  * Helper to compute stockStatus based on Stock record:
@@ -30,6 +31,7 @@ export const getProducts = async (req, res, next) => {
     const {
       search,
       category,
+      productRange,
       minPrice,
       maxPrice,
       weight,
@@ -55,6 +57,11 @@ export const getProducts = async (req, res, next) => {
           totalResults: 0
         });
       }
+    }
+
+    // PHASE 11: Product Range filter ("regular" | "diet")
+    if (productRange && ['regular', 'diet'].includes(productRange.toLowerCase())) {
+      productFilter.productRange = productRange.toLowerCase();
     }
 
     if (search && search.trim() !== '') {
@@ -139,11 +146,27 @@ export const getProducts = async (req, res, next) => {
     let processedProducts = [];
 
     for (const prod of baseProducts) {
+      // Fetch active offer once per product (efficient lookup)
+      const offer = await getActiveOfferForProduct(prod);
+
       const variants = variantMap.get(prod._id.toString()) || [];
+
+      // Augment each variant with discount calculation
+      const variantsWithDiscounts = variants.map((v) => {
+        const discountInfo = applyDiscount(v.sellingPrice, offer);
+        return {
+          ...v,
+          finalPrice: discountInfo.finalPrice,
+          discountAmount: discountInfo.discountAmount,
+          offerName: discountInfo.offerName,
+          discountType: discountInfo.discountType,
+          discountValue: discountInfo.discountValue
+        };
+      });
 
       // Check if product has any matching variants if variant filters are provided
       if (hasVariantFilters) {
-        const matchingVariants = variants.filter((v) => {
+        const matchingVariants = variantsWithDiscounts.filter((v) => {
           if (hasMinPrice && v.sellingPrice < Number(minPrice)) return false;
           if (hasMaxPrice && v.sellingPrice > Number(maxPrice)) return false;
           if (hasWeight && v.weight !== Number(weight)) return false;
@@ -175,16 +198,17 @@ export const getProducts = async (req, res, next) => {
         : null;
 
       // Clean up internal availableQuantity from response variants
-      const cleanVariants = variants.map(({ availableQuantity, ...rest }) => rest);
+      const cleanVariants = variantsWithDiscounts.map(({ availableQuantity, ...rest }) => rest);
 
       // Determine min/max variant price for sorting
-      const variantPrices = variants.map((v) => v.sellingPrice);
+      const variantPrices = cleanVariants.map((v) => v.sellingPrice);
       const minVariantPrice = variantPrices.length > 0 ? Math.min(...variantPrices) : 0;
       const maxVariantPrice = variantPrices.length > 0 ? Math.max(...variantPrices) : 0;
 
       processedProducts.push({
         _id: prod._id,
         productName: prod.productName,
+        productRange: prod.productRange || 'regular',
         description: prod.description,
         productImages: prod.productImages,
         category: categoryObj,
@@ -266,14 +290,24 @@ export const getProductById = async (req, res, next) => {
       stockMap.set(s.variantId.toString(), s);
     }
 
+    // Fetch active offer once for this product
+    const offer = await getActiveOfferForProduct(product);
+
     const formattedVariants = variants.map((v) => {
       const stockDoc = stockMap.get(v._id.toString());
+      const discountInfo = applyDiscount(v.sellingPrice, offer);
+
       return {
         _id: v._id,
         weight: v.weight,
         unit: v.unit,
         displayName: v.displayName,
         sellingPrice: v.sellingPrice,
+        finalPrice: discountInfo.finalPrice,
+        discountAmount: discountInfo.discountAmount,
+        offerName: discountInfo.offerName,
+        discountType: discountInfo.discountType,
+        discountValue: discountInfo.discountValue,
         wholesalePrice: null, // Always hidden for customer
         sku: v.sku,
         stockStatus: computeStockStatus(stockDoc)
@@ -306,6 +340,7 @@ export const getProductById = async (req, res, next) => {
       product: {
         _id: product._id,
         productName: product.productName,
+        productRange: product.productRange || 'regular',
         description: product.description,
         ingredients: product.ingredients,
         nutritionalInformation: product.nutritionalInformation,

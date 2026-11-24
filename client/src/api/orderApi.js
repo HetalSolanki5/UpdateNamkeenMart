@@ -1,7 +1,7 @@
 import axiosClient from './axiosClient.js';
 
 /**
- * Place a new order from cart
+ * Place a new order from cart (Legacy / Phase 5B / direct COD reference)
  * @param {string} addressId Selected delivery address ID
  * @param {string} paymentMethod "upi" | "card" | "netbanking" | "cod"
  * @returns {Promise<Object>} Created order, orderItems, payment, invoice
@@ -10,6 +10,38 @@ export const placeOrder = async (addressId, paymentMethod) => {
   const response = await axiosClient.post('/orders', {
     addressId,
     paymentMethod
+  });
+  return response.data;
+};
+
+/**
+ * Phase 5D-A/B: Step 1 - Initiate checkout
+ * For COD: directly creates the order and returns { order, orderItems, payment, invoice }.
+ * For UPI/Card/NetBanking: creates a Razorpay order and returns { razorpayOrderId, amount, currency, keyId, addressId }.
+ * @param {string} addressId
+ * @param {string} paymentMethod "upi" | "card" | "netbanking" | "cod"
+ * @returns {Promise<Object>}
+ */
+export const initiateCheckout = async (addressId, paymentMethod) => {
+  const response = await axiosClient.post('/orders/initiate', {
+    addressId,
+    paymentMethod
+  });
+  return response.data;
+};
+
+/**
+ * Phase 5D-A/B: Step 2 - Verify Razorpay payment signature & create the order
+ * @param {string} addressId
+ * @param {Object} razorpayData { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+ * @returns {Promise<Object>} Created order, orderItems, payment, invoice
+ */
+export const verifyPayment = async (addressId, razorpayData) => {
+  const response = await axiosClient.post('/orders/verify', {
+    addressId,
+    razorpay_order_id: razorpayData.razorpay_order_id,
+    razorpay_payment_id: razorpayData.razorpay_payment_id,
+    razorpay_signature: razorpayData.razorpay_signature
   });
   return response.data;
 };

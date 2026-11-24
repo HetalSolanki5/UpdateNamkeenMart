@@ -14,6 +14,7 @@ export const registerUser = async (data, requestedRole = 'customer') => {
     throw new Error('Password must be at least 8 characters');
   }
 
+
   if (!['customer', 'wholesaler'].includes(requestedRole)) {
     throw new Error('Invalid registration role');
   }

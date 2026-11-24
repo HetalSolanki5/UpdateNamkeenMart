@@ -45,9 +45,6 @@ const CustomerLayout = () => {
             <NavLink to="/customer/shop" className={navLinkClass}>
               Shop
             </NavLink>
-            <NavLink to="/customer/wishlist" className={navLinkClass}>
-              Wishlist
-            </NavLink>
             <NavLink to="/customer/cart" className={navLinkClass}>
               <span className="relative inline-flex items-center">
                 Cart
@@ -78,12 +75,12 @@ const CustomerLayout = () => {
         </div>
       </header>
 
-      {/* Main Page Content */}
-      <main className="flex-1 pb-20 md:pb-8">
+      {/* Main Page Content Container */}
+      <main className="flex-1 pb-20 md:pb-12 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Outlet />
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation Bar: Home, Shop, Cart, Account */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 flex justify-around items-center h-16 shadow-lg">
         <NavLink to="/customer" end className={mobileNavLinkClass}>
           <svg className="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,12 +93,6 @@ const CustomerLayout = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
           </svg>
           Shop
-        </NavLink>
-        <NavLink to="/customer/wishlist" className={mobileNavLinkClass}>
-          <svg className="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-          Wishlist
         </NavLink>
         <NavLink to="/customer/cart" className={mobileNavLinkClass}>
           <div className="relative inline-flex flex-col items-center">

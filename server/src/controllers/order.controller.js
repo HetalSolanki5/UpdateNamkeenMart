@@ -37,8 +37,9 @@ export const checkoutOrder = async (req, res, next) => {
       ...result
     });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      message: error.message || 'Internal Server Error'
+    const errorDetails = error?.error?.description || error?.message || 'Internal Server Error';
+    return res.status(error.status || error.statusCode || 500).json({
+      message: errorDetails
     });
   }
 };
@@ -86,8 +87,9 @@ export const initiateCheckout = async (req, res, next) => {
       addressId: razorpayData.addressId
     });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      message: error.message || 'Internal Server Error'
+    const errorDetails = error?.error?.description || error?.message || 'Internal Server Error';
+    return res.status(error.status || error.statusCode || 500).json({
+      message: errorDetails
     });
   }
 };
@@ -97,7 +99,7 @@ export const initiateCheckout = async (req, res, next) => {
 // @access  Private (Customer only)
 export const verifyPayment = async (req, res, next) => {
   try {
-    const { addressId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { addressId, paymentMethod = 'online', razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
     if (!addressId || !mongoose.Types.ObjectId.isValid(addressId)) {
       return res.status(400).json({ message: 'Valid delivery addressId is required.' });
@@ -112,6 +114,7 @@ export const verifyPayment = async (req, res, next) => {
     // Verify signature and create order — returns same shape as createOrderFromCart
     const result = await verifyAndCreateOrder(req.user, {
       addressId,
+      paymentMethod,
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature
@@ -123,8 +126,9 @@ export const verifyPayment = async (req, res, next) => {
       ...result
     });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      message: error.message || 'Internal Server Error'
+    const errorDetails = error?.error?.description || error?.message || 'Internal Server Error';
+    return res.status(error.status || error.statusCode || 500).json({
+      message: errorDetails
     });
   }
 };
@@ -212,8 +216,9 @@ export const getOrderById = async (req, res, next) => {
     const result = await getOrderFullDetails(req.params.id, req.user);
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(error.status || 500).json({
-      message: error.message || 'Internal Server Error'
+    const errorDetails = error?.error?.description || error?.message || 'Internal Server Error';
+    return res.status(error.status || error.statusCode || 500).json({
+      message: errorDetails
     });
   }
 };
@@ -269,8 +274,9 @@ export const getOrderTracking = async (req, res, next) => {
       timeline
     });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      message: error.message || 'Internal Server Error'
+    const errorDetails = error?.error?.description || error?.message || 'Internal Server Error';
+    return res.status(error.status || error.statusCode || 500).json({
+      message: errorDetails
     });
   }
 };

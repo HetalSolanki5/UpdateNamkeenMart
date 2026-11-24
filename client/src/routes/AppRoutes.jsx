@@ -13,7 +13,6 @@ import CustomerLayout from '../layouts/CustomerLayout.jsx';
 import CustomerHome from '../pages/customer/CustomerHome.jsx';
 import ShopPage from '../pages/customer/ShopPage.jsx';
 import ProductDetailPage from '../pages/customer/ProductDetailPage.jsx';
-import WishlistPage from '../pages/customer/WishlistPage.jsx';
 import CartPage from '../pages/customer/CartPage.jsx';
 import CheckoutPage from '../pages/customer/CheckoutPage.jsx';
 import MyOrdersPage from '../pages/customer/MyOrdersPage.jsx';
@@ -42,6 +41,7 @@ import AdminLayout from '../layouts/AdminLayout.jsx';
 import AdminDashboard from '../pages/admin/AdminDashboard.jsx';
 import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
 import AdminProductsPage from '../pages/admin/AdminProductsPage.jsx';
+import AdminOffersPage from '../pages/admin/AdminOffersPage.jsx';
 import AdminOrdersPage from '../pages/admin/AdminOrdersPage.jsx';
 import AdminOrderDetailPage from '../pages/admin/AdminOrderDetailPage.jsx';
 import AdminWholesaleOrdersPage from '../pages/admin/AdminWholesaleOrdersPage.jsx';
@@ -77,7 +77,6 @@ const AppRoutes = () => {
         <Route index element={<CustomerHome />} />
         <Route path="shop" element={<ShopPage />} />
         <Route path="product/:id" element={<ProductDetailPage />} />
-        <Route path="wishlist" element={<WishlistPage />} />
         <Route path="cart" element={<CartPage />} />
         <Route path="checkout" element={<CheckoutPage />} />
         <Route path="orders" element={<MyOrdersPage />} />
@@ -127,6 +126,7 @@ const AppRoutes = () => {
       >
         <Route index element={<AdminDashboard />} />
         <Route path="products" element={<AdminProductsPage />} />
+        <Route path="offers" element={<AdminOffersPage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="orders" element={<AdminOrdersPage />} />
         <Route path="orders/:id" element={<AdminOrderDetailPage />} />

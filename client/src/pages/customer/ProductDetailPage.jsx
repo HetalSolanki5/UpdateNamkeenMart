@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getProductById } from '../../api/catalogApi.js';
-import { getWishlist, addToWishlist, removeFromWishlist } from '../../api/wishlistApi.js';
 import { useCart } from '../../context/CartContext.jsx';
 import Loader from '../../components/Loader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -17,12 +16,11 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [actionFeedback, setActionFeedback] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
 
-  // Load product detail & wishlist status
+  // Load product detail
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -45,18 +43,6 @@ const ProductDetailPage = () => {
         if (fetchedProduct?.productImages && fetchedProduct.productImages.length > 0) {
           setSelectedImage(fetchedProduct.productImages[0]);
         }
-
-        // Check wishlist status
-        try {
-          const wishData = await getWishlist();
-          const items = wishData?.items || wishData?.wishlist || [];
-          const exists = items.some(
-            (item) => (item.product ? item.product._id : item.productId) === id
-          );
-          setIsWishlisted(exists);
-        } catch (wErr) {
-          // Ignore wishlist check error for anonymous users
-        }
       } catch (err) {
         setError(err.response?.data?.message || 'Product not found.');
       } finally {
@@ -66,23 +52,6 @@ const ProductDetailPage = () => {
 
     fetchData();
   }, [id]);
-
-  // Wishlist toggle handler
-  const handleWishlistToggle = async () => {
-    try {
-      if (isWishlisted) {
-        await removeFromWishlist(id);
-        setIsWishlisted(false);
-        showFeedback('Removed from wishlist');
-      } else {
-        await addToWishlist(id);
-        setIsWishlisted(true);
-        showFeedback('Added to wishlist');
-      }
-    } catch (err) {
-      showFeedback('Wishlist update failed', 'error');
-    }
-  };
 
   // Temporary feedback toast
   const showFeedback = (msg, type = 'success') => {
@@ -144,9 +113,9 @@ const ProductDetailPage = () => {
   const isLowStock = selectedVariant?.stockStatus === 'low_stock';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto py-8 space-y-6">
       {/* Breadcrumb */}
-      <nav className="text-xs text-gray-500 mb-6 flex items-center space-x-2">
+      <nav className="text-xs text-gray-500 flex items-center space-x-2">
         <Link to="/customer" className="hover:text-[#C62828]">Home</Link>
         <span>/</span>
         <Link to="/customer/shop" className="hover:text-[#C62828]">Shop</Link>
@@ -184,23 +153,6 @@ const ProductDetailPage = () => {
             >
               No Image Available
             </div>
-
-            {/* Wishlist Heart Button */}
-            <button
-              onClick={handleWishlistToggle}
-              type="button"
-              className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 backdrop-blur-sm shadow hover:bg-white text-[#C62828] transition cursor-pointer"
-            >
-              {isWishlisted ? (
-                <svg className="w-6 h-6 fill-[#C62828]" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6 stroke-[#C62828] fill-none" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              )}
-            </button>
           </div>
 
           {/* Thumbnail Row if Multiple Images */}
@@ -223,12 +175,20 @@ const ProductDetailPage = () => {
 
         {/* Right: Product Info & Actions */}
         <div className="flex flex-col">
-          {/* Category Tag */}
-          {product.category && (
-            <span className="text-xs font-bold uppercase tracking-wider text-[#C62828] mb-1">
-              {product.category.categoryName}
-            </span>
-          )}
+          {/* Category & Diet Badges */}
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            {product.category && (
+              <span className="text-xs font-bold uppercase tracking-wider text-[#C62828]">
+                {product.category.categoryName}
+              </span>
+            )}
+            {product.productRange === 'diet' && (
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-black uppercase tracking-wider rounded-md inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                <span>Diet</span>
+              </span>
+            )}
+          </div>
 
           {/* Title */}
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2">
@@ -249,10 +209,30 @@ const ProductDetailPage = () => {
           {/* Price & Stock Status */}
           <div className="p-4 bg-[#FFF9F9] rounded-2xl border border-gray-100 mb-6 flex items-center justify-between">
             <div>
-              <span className="text-xs text-gray-500 block">Selling Price</span>
-              <span className="text-3xl font-black text-[#C62828]">
-                {selectedVariant ? `₹${selectedVariant.sellingPrice}` : 'Select Variant'}
-              </span>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs text-gray-500">
+                  {selectedVariant?.discountAmount > 0 ? 'Offer Price' : 'Selling Price'}
+                </span>
+                {selectedVariant?.offerName && (
+                  <span className="px-2 py-0.5 bg-[#C62828] text-white text-[10px] font-black uppercase tracking-wider rounded-md">
+                    {selectedVariant.discountType === 'percentage'
+                      ? `${selectedVariant.discountValue}% OFF • ${selectedVariant.offerName}`
+                      : `₹${selectedVariant.discountValue} OFF • ${selectedVariant.offerName}`}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-[#C62828]">
+                  {selectedVariant
+                    ? `₹${typeof selectedVariant.finalPrice === 'number' ? selectedVariant.finalPrice : selectedVariant.sellingPrice}`
+                    : 'Select Variant'}
+                </span>
+                {selectedVariant?.discountAmount > 0 && (
+                  <span className="text-sm font-semibold text-gray-400 line-through">
+                    ₹{selectedVariant.sellingPrice}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Stock status badge */}
@@ -282,6 +262,7 @@ const ProductDetailPage = () => {
               {product.variants?.map((v) => {
                 const isSelected = selectedVariant?._id === v._id;
                 const outStock = v.stockStatus === 'out_of_stock';
+                const displayPrice = typeof v.finalPrice === 'number' ? v.finalPrice : v.sellingPrice;
                 return (
                   <button
                     key={v._id}
@@ -294,7 +275,13 @@ const ProductDetailPage = () => {
                     } ${outStock ? 'opacity-50' : ''}`}
                   >
                     <span>{v.displayName || `${v.weight}${v.unit}`}</span>
-                    <span className="text-xs ml-1.5 opacity-90">(₹{v.sellingPrice})</span>
+                    <span className="text-xs ml-1.5 opacity-90">
+                      (₹{displayPrice}
+                      {v.discountAmount > 0 && (
+                        <span className="line-through ml-1 opacity-70">₹{v.sellingPrice}</span>
+                      )}
+                      )
+                    </span>
                   </button>
                 );
               })}
@@ -335,24 +322,12 @@ const ProductDetailPage = () => {
           {/* Action Buttons */}
           <div className="flex flex-col space-y-3 mt-auto pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Add to wishlist */}
-              <button
-                type="button"
-                onClick={handleWishlistToggle}
-                className="py-3 px-4 rounded-xl font-bold text-sm border-2 border-[#C62828] text-[#C62828] hover:bg-[#FDECEC] transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-              >
-                <svg className={`w-5 h-5 ${isWishlisted ? 'fill-[#C62828]' : 'stroke-[#C62828] fill-none'}`} viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <span>{isWishlisted ? 'In Wishlist' : 'Add to Wishlist'}</span>
-              </button>
-
               {/* Add to cart */}
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isOutOfStock || addingToCart}
-                className={`py-3 px-6 rounded-xl font-bold text-sm transition shadow-sm cursor-pointer ${
+                className={`py-3.5 px-6 rounded-xl font-bold text-sm transition shadow-sm cursor-pointer ${
                   isOutOfStock
                     ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     : 'bg-[#C62828] hover:bg-[#8E1B1B] text-white active:scale-98'
@@ -360,21 +335,21 @@ const ProductDetailPage = () => {
               >
                 {addingToCart ? 'Adding...' : 'Add to Cart'}
               </button>
-            </div>
 
-            {/* Buy now */}
-            <button
-              type="button"
-              onClick={handleBuyNow}
-              disabled={isOutOfStock || addingToCart}
-              className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white transition shadow-sm cursor-pointer ${
-                isOutOfStock
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-[#8E1B1B] hover:bg-[#701515] active:scale-98'
-              }`}
-            >
-              Buy Now
-            </button>
+              {/* Buy now */}
+              <button
+                type="button"
+                onClick={handleBuyNow}
+                disabled={isOutOfStock || addingToCart}
+                className={`py-3.5 px-6 rounded-xl font-bold text-sm text-white transition shadow-sm cursor-pointer ${
+                  isOutOfStock
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-[#8E1B1B] hover:bg-[#701515] active:scale-98'
+                }`}
+              >
+                Buy Now
+              </button>
+            </div>
           </div>
 
           {/* Feedback Toast */}

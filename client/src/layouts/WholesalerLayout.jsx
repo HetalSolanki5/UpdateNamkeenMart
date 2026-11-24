@@ -337,7 +337,9 @@ const WholesalerLayout = () => {
 
         {/* Page content */}
         <main className="flex-1 p-4 lg:p-6">
-          <Outlet />
+          <div className="w-full max-w-7xl mx-auto">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -67,9 +67,9 @@ const CartPage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto py-8 space-y-6">
       {/* Page Title */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
             Shopping Cart
@@ -209,6 +209,12 @@ const CartPage = () => {
                 <span>Items Subtotal</span>
                 <span className="font-semibold text-gray-800">₹{subtotal}</span>
               </div>
+              {cart?.cartOfferName && cart?.cartDiscountAmount > 0 && (
+                <div className="flex justify-between text-emerald-700 font-bold text-xs bg-emerald-50 p-2 rounded-lg">
+                  <span>Bulk Discount ({cart.cartOfferName}):</span>
+                  <span>-₹{cart.cartDiscountAmount}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Delivery Charge</span>
                 <span className="font-semibold text-emerald-600">

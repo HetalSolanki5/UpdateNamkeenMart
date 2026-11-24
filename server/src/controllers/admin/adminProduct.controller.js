@@ -18,7 +18,7 @@ import { computeStockStatus } from '../product.controller.js';
  */
 export const getAdminProducts = async (req, res, next) => {
   try {
-    const { search, category, page = 1, limit = 20 } = req.query;
+    const { search, category, productRange, page = 1, limit = 20 } = req.query;
 
     const productFilter = {};
 
@@ -33,6 +33,10 @@ export const getAdminProducts = async (req, res, next) => {
           total: 0
         });
       }
+    }
+
+    if (productRange && ['regular', 'diet'].includes(productRange.toLowerCase())) {
+      productFilter.productRange = productRange.toLowerCase();
     }
 
     if (search && search.trim() !== '') {
@@ -123,6 +127,7 @@ export const createProduct = async (req, res, next) => {
     const {
       categoryId,
       productName,
+      productRange = 'regular',
       description,
       ingredients,
       nutritionalInformation,
@@ -148,6 +153,7 @@ export const createProduct = async (req, res, next) => {
     const newProduct = await Product.create({
       categoryId,
       productName: productName.trim(),
+      productRange: ['regular', 'diet'].includes(productRange?.toLowerCase()) ? productRange.toLowerCase() : 'regular',
       description,
       ingredients,
       nutritionalInformation,
@@ -228,6 +234,7 @@ export const updateProduct = async (req, res, next) => {
     const {
       categoryId,
       productName,
+      productRange,
       description,
       ingredients,
       nutritionalInformation,
@@ -255,6 +262,9 @@ export const updateProduct = async (req, res, next) => {
     }
 
     if (productName !== undefined) product.productName = productName.trim();
+    if (productRange !== undefined && ['regular', 'diet'].includes(productRange.toLowerCase())) {
+      product.productRange = productRange.toLowerCase();
+    }
     if (description !== undefined) product.description = description;
     if (ingredients !== undefined) product.ingredients = ingredients;
     if (nutritionalInformation !== undefined) product.nutritionalInformation = nutritionalInformation;

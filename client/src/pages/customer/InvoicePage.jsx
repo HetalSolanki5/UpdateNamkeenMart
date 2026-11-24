@@ -62,7 +62,7 @@ const InvoicePage = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto py-8 space-y-6">
       {/* Non-print Top Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 print:hidden">
         <div>
@@ -110,9 +110,9 @@ const InvoicePage = () => {
         </div>
 
         {/* Invoice Meta Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 p-6 sm:p-8 bg-gray-50/50 border-b border-gray-200 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 sm:p-8 bg-gray-50/50 border-b border-gray-200 text-xs">
           <div>
-            <h4 className="font-bold text-[#C62828] uppercase text-[11px] mb-2 tracking-wider">
+            <h4 className="font-bold text-[#8E1B1B] uppercase text-[11px] mb-2 tracking-wider">
               Invoice Details
             </h4>
             <div className="space-y-1 text-gray-700">
@@ -130,18 +130,7 @@ const InvoicePage = () => {
           </div>
 
           <div>
-            <h4 className="font-bold text-[#C62828] uppercase text-[11px] mb-2 tracking-wider">
-              Billed & Shipped To
-            </h4>
-            <div className="space-y-1 text-gray-700">
-              <p className="font-bold text-gray-900">{invoice.customerName}</p>
-              <p>{invoice.phone}</p>
-              <p className="leading-relaxed">{invoice.address}</p>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-[#C62828] uppercase text-[11px] mb-2 tracking-wider">
+            <h4 className="font-bold text-[#8E1B1B] uppercase text-[11px] mb-2 tracking-wider">
               Payment Status
             </h4>
             <div className="space-y-1 text-gray-700">
@@ -151,6 +140,42 @@ const InvoicePage = () => {
                 <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
                   {invoice.paymentStatus}
                 </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Phase 12C: Simplified to 2 Sections: "Billed By" and "Shipped To" (Billed To removed) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 sm:p-8 bg-white border-b border-gray-100 text-xs">
+          <div>
+            <h4 className="font-bold text-[#8E1B1B] uppercase text-[11px] mb-2 tracking-wider">
+              Billed By
+            </h4>
+            <div className="space-y-1 text-gray-700">
+              <p className="font-bold text-gray-900">{invoice.billedBy?.name || 'Rameshwar Namkeen'}</p>
+              {invoice.billedBy?.tagline && (
+                <p className="text-gray-500 text-[11px]">{invoice.billedBy.tagline}</p>
+              )}
+              <p className="leading-relaxed">
+                {invoice.billedBy?.address || 'Plot No. 12, GIDC Industrial Estate, Rajkot, Gujarat - 360003'}
+              </p>
+              <p>Phone: {invoice.billedBy?.phone || '+91 98765 43210'}</p>
+              <p>Email: {invoice.billedBy?.email || 'sales@ramshewarnamkeen.com'}</p>
+              <p><strong>GSTIN:</strong> {invoice.billedBy?.gstin || '24AAACR1234M1Z5'}</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-[#8E1B1B] uppercase text-[11px] mb-2 tracking-wider">
+              Shipped To
+            </h4>
+            <div className="space-y-1 text-gray-700">
+              <p className="font-bold text-gray-900">
+                {invoice.shippedTo?.receiverName || invoice.customerName || 'Valued Customer'}
+              </p>
+              <p>Phone: {invoice.shippedTo?.phone || invoice.phone || 'N/A'}</p>
+              <p className="leading-relaxed">
+                {invoice.shippedTo?.address || invoice.address || 'Address on file'}
               </p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Cart, CartItem, Variant, Stock } from '../models/index.js';
+import { getBestWholeOrderOffer, applyCartDiscount } from '../utils/offerCalculator.js';
 
 /**
  * Helper to compute stockStatus based on Stock record:
@@ -25,7 +26,7 @@ const computeStockStatus = (stock) => {
 /**
  * Helper to retrieve and format the full cart details
  */
-const getCartDetails = async (cartId) => {
+const getCartDetails = async (cartId, userId = null) => {
   const cartItems = await CartItem.find({ cartId })
     .populate({
       path: 'variantId',
@@ -73,12 +74,19 @@ const getCartDetails = async (cartId) => {
     });
   }
 
+  // PHASE 10E & 10G: Check for best whole-order discount (cart-threshold or loyalty offer)
+  // Single decision point via getBestWholeOrderOffer to evaluate threshold & customer loyalty
+  const bestWholeOffer = await getBestWholeOrderOffer(userId, subtotal);
+  const cartDiscount = applyCartDiscount(subtotal, bestWholeOffer);
+
   const deliveryCharge = 0; // Fixed placeholder in this phase
-  const total = subtotal + deliveryCharge;
+  const total = cartDiscount.finalSubtotal + deliveryCharge;
 
   return {
     items,
-    subtotal,
+    subtotal, // Unchanged subtotal before cart discount
+    cartDiscountAmount: cartDiscount.discountAmount,
+    cartOfferName: cartDiscount.offerName,
     deliveryCharge,
     total
   };
@@ -95,7 +103,7 @@ export const getCart = async (req, res, next) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    const cartData = await getCartDetails(cart._id);
+    const cartData = await getCartDetails(cart._id, req.user._id);
     return res.status(200).json(cartData);
   } catch (error) {
     next(error);
@@ -158,7 +166,7 @@ export const addToCart = async (req, res, next) => {
     }
 
     // Return 201 with updated cart
-    const cartData = await getCartDetails(cart._id);
+    const cartData = await getCartDetails(cart._id, req.user._id);
     return res.status(201).json(cartData);
   } catch (error) {
     next(error);
@@ -203,7 +211,7 @@ export const updateCartItem = async (req, res, next) => {
     cartItem.quantity = parsedQty;
     await cartItem.save();
 
-    const cartData = await getCartDetails(cart._id);
+    const cartData = await getCartDetails(cart._id, req.user._id);
     return res.status(200).json(cartData);
   } catch (error) {
     next(error);

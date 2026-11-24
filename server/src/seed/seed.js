@@ -39,21 +39,24 @@ const seedDatabase = async () => {
         productName: 'Plain Sev',
         description: 'Classic plain sev, crispy and delicious.',
         ingredients: 'Gram flour, salt, edible oil',
-        productImages: ['/images/plain-sev.jpg']
+        productImages: ['/images/plain-sev.jpg'],
+        productRange: 'regular'
       },
       {
         categoryId: sevCategory._id,
         productName: 'Ratlami Sev',
         description: 'Spicy and thick ratlami sev.',
         ingredients: 'Gram flour, spices, clove, edible oil',
-        productImages: ['/images/ratlami-sev.jpg']
+        productImages: ['/images/ratlami-sev.jpg'],
+        productRange: 'regular'
       },
       {
         categoryId: mixtureCategory._id,
         productName: 'Mixture Namkeen',
-        description: 'A perfect blend of sweet, spicy, and tangy flavors.',
+        description: 'A perfect blend of sweet, spicy, and tangy flavors. Baked and low-oil healthy diet option.',
         ingredients: 'Peanuts, gram flour, spices, lentils, edible oil',
-        productImages: ['/images/mixture-namkeen.jpg']
+        productImages: ['/images/mixture-namkeen.jpg'],
+        productRange: 'diet'
       }
     ];
 
@@ -62,8 +65,7 @@ const seedDatabase = async () => {
     console.log('Inserting variants and stock...');
     const variantSizes = [
       { weight: 200, unit: 'g', suffix: '200', price: 50 },
-      { weight: 500, unit: 'g', suffix: '500', price: 120 },
-      { weight: 1, unit: 'kg', suffix: '1KG', price: 230 }
+      { weight: 500, unit: 'g', suffix: '500', price: 120 }
     ];
 
     for (const product of createdProducts) {

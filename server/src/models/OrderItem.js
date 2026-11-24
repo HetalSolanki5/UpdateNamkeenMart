@@ -7,7 +7,8 @@ const orderItemSchema = new mongoose.Schema({
   variantSnapshot: { type: String },
   quantity: { type: Number },
   unitPrice: { type: Number },
-  subtotal: { type: Number }
+  subtotal: { type: Number },
+  appliedOfferName: { type: String, default: null }
 });
 
 export default mongoose.model('OrderItem', orderItemSchema);

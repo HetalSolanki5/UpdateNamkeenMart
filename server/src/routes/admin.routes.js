@@ -52,6 +52,13 @@ import {
   deleteReview
 } from '../controllers/admin/adminReview.controller.js';
 import { getAdminReports } from '../controllers/admin/adminReport.controller.js';
+import {
+  getAdminOffers,
+  createOffer,
+  updateOffer,
+  deleteOffer,
+  toggleOfferActive
+} from '../controllers/admin/adminOffer.controller.js';
 
 const router = express.Router();
 
@@ -84,6 +91,15 @@ router.delete('/reviews/:id', deleteReview);
 // Part A4: Admin Reports & Analytics
 // ==========================================
 router.get('/reports', getAdminReports);
+
+// ==========================================
+// Part A5: Festival & Seasonal Offers Management
+// ==========================================
+router.get('/offers', getAdminOffers);
+router.post('/offers', createOffer);
+router.put('/offers/:id', updateOffer);
+router.delete('/offers/:id', deleteOffer);
+router.put('/offers/:id/active', toggleOfferActive);
 
 // ==========================================
 // Part B: Controlled Admin Creation

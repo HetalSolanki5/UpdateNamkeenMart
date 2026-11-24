@@ -13,6 +13,13 @@ import {
   User
 } from '../models/index.js';
 import { generateOrderNumber, generateInvoiceNumber } from '../utils/generateCode.js';
+import {
+  getActiveOfferForProduct,
+  applyDiscount,
+  getActiveCartThresholdOffer,
+  applyCartDiscount,
+  getBestWholeOrderOffer
+} from '../utils/offerCalculator.js';
 import razorpay from '../config/razorpay.js';
 import { env } from '../config/env.js';
 
@@ -111,8 +118,13 @@ const validateCartAndComputeTotal = async (user, { addressId }) => {
       throw err;
     }
 
-    // Never trust frontend prices: read directly from database
-    const unitPrice = variant.sellingPrice;
+    // Never trust frontend prices: read directly from database.
+    // In addition, recalculate active festival/seasonal offers fresh from the database at checkout time.
+    // Even if a malicious client tampered with cart item prices or invented a fake discount,
+    // we query active Offer documents right now and apply the legitimate discount to variant.sellingPrice.
+    const activeOffer = await getActiveOfferForProduct(product);
+    const discountInfo = applyDiscount(variant.sellingPrice, activeOffer);
+    const unitPrice = discountInfo.finalPrice;
     const itemSubtotal = unitPrice * item.quantity;
 
     validatedItems.push({
@@ -122,13 +134,33 @@ const validateCartAndComputeTotal = async (user, { addressId }) => {
       stock,
       quantity: item.quantity,
       unitPrice,
-      subtotal: itemSubtotal
+      subtotal: itemSubtotal,
+      appliedOfferName: discountInfo.offerName || null
     });
   }
 
-  const totalAmount = validatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+  const subtotalBeforeCartDiscount = validatedItems.reduce((sum, item) => sum + item.subtotal, 0);
 
-  return { freshUser, foundAddress, cart, cartItems, validatedItems, totalAmount };
+  // PHASE 10E & 10G: Whole-order discount recalculation at order time
+  // "Never trust frontend prices or discounts":
+  // We call getBestWholeOrderOffer to evaluate both cart-threshold and customer loyalty
+  // offers fresh from the database against the authenticated user and subtotal.
+  // This single decision point prevents any frontend tampering or duplicate rule evaluation.
+  const bestWholeOffer = await getBestWholeOrderOffer(freshUser._id, subtotalBeforeCartDiscount);
+  const cartDiscountInfo = applyCartDiscount(subtotalBeforeCartDiscount, bestWholeOffer);
+  const totalAmount = cartDiscountInfo.finalSubtotal;
+
+  return {
+    freshUser,
+    foundAddress,
+    cart,
+    cartItems,
+    validatedItems,
+    subtotalBeforeCartDiscount,
+    cartDiscountAmount: cartDiscountInfo.discountAmount,
+    appliedCartOfferName: cartDiscountInfo.offerName || null,
+    totalAmount
+  };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,7 +194,8 @@ const reduceStockAndCreateDocuments = async (
   cart,
   validatedItems,
   totalAmount,
-  paymentDetails
+  paymentDetails,
+  cartOfferDetails = {}
 ) => {
   // Track reduced stocks for compensating rollback in case of subsequent errors
   const reducedStocks = [];
@@ -203,6 +236,8 @@ const reduceStockAndCreateDocuments = async (
       },
       totalAmount,
       deliveryCharge,
+      appliedCartOfferName: cartOfferDetails.appliedCartOfferName || null,
+      cartDiscountAmount: cartOfferDetails.cartDiscountAmount || 0,
       orderStatus: 'placed',
       paymentStatus: paymentDetails.status === 'success' ? 'paid' : 'pending'
     });
@@ -215,7 +250,8 @@ const reduceStockAndCreateDocuments = async (
       variantSnapshot: valItem.variant.displayName || `${valItem.variant.weight}${valItem.variant.unit}`,
       quantity: valItem.quantity,
       unitPrice: valItem.unitPrice,
-      subtotal: valItem.subtotal
+      subtotal: valItem.subtotal,
+      appliedOfferName: valItem.appliedOfferName || null
     }));
 
     const orderItems = await OrderItem.insertMany(orderItemsToCreate);
@@ -274,8 +310,15 @@ const reduceStockAndCreateDocuments = async (
  */
 export const createOrderFromCart = async (user, { addressId, paymentMethod }) => {
   // Validate cart and compute total using the shared helper
-  const { freshUser, foundAddress, cart, validatedItems, totalAmount } =
-    await validateCartAndComputeTotal(user, { addressId });
+  const {
+    freshUser,
+    foundAddress,
+    cart,
+    validatedItems,
+    totalAmount,
+    cartDiscountAmount,
+    appliedCartOfferName
+  } = await validateCartAndComputeTotal(user, { addressId });
 
   // Build payment details: COD is always "pending", simulated online is "success"
   const paymentDetails = {
@@ -284,7 +327,15 @@ export const createOrderFromCart = async (user, { addressId, paymentMethod }) =>
     transactionId: `TXN-${Date.now()}` // simulated transaction id for COD / old flow
   };
 
-  return reduceStockAndCreateDocuments(freshUser, foundAddress, cart, validatedItems, totalAmount, paymentDetails);
+  return reduceStockAndCreateDocuments(
+    freshUser,
+    foundAddress,
+    cart,
+    validatedItems,
+    totalAmount,
+    paymentDetails,
+    { cartDiscountAmount, appliedCartOfferName }
+  );
 };
 
 /**
@@ -377,8 +428,15 @@ export const verifyAndCreateOrder = async (
   // be processed. Building automatic refund automation is outside the scope of
   // this college project, but in a production system you would call Razorpay's
   // refund API here: razorpay.payments.refund(razorpay_payment_id, { amount }).
-  const { freshUser, foundAddress, cart, validatedItems, totalAmount } =
-    await validateCartAndComputeTotal(user, { addressId }).catch((stockErr) => {
+  const {
+    freshUser,
+    foundAddress,
+    cart,
+    validatedItems,
+    totalAmount,
+    cartDiscountAmount,
+    appliedCartOfferName
+  } = await validateCartAndComputeTotal(user, { addressId }).catch((stockErr) => {
       // Enhance the error message so the customer knows to contact support
       if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
         stockErr.message =
@@ -400,7 +458,15 @@ export const verifyAndCreateOrder = async (
     transactionId: razorpay_payment_id // the real Razorpay payment ID, not a fake TXN-timestamp
   };
 
-  return reduceStockAndCreateDocuments(freshUser, foundAddress, cart, validatedItems, totalAmount, paymentDetails);
+  return reduceStockAndCreateDocuments(
+    freshUser,
+    foundAddress,
+    cart,
+    validatedItems,
+    totalAmount,
+    paymentDetails,
+    { cartDiscountAmount, appliedCartOfferName }
+  );
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
