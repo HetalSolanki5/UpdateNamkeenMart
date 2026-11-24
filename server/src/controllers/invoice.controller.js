@@ -1,5 +1,6 @@
 import { Invoice } from '../models/index.js';
 import { getOrderFullDetails } from '../services/order.service.js';
+import * as invoiceService from '../services/invoiceService.js';
 import { invoiceHtml } from '../templates/invoice.template.js';
 import { htmlToPdfBuffer } from '../utils/pdfGenerator.js';
 
@@ -111,12 +112,13 @@ export const downloadInvoicePdf = async (req, res, next) => {
 // @access  Private (Customer only)
 export const getMyInvoices = async (req, res, next) => {
   try {
-    const invoices = await Invoice.find({ userId: req.user._id })
-      .populate('orderId', 'orderNumber orderStatus totalAmount')
-      .sort({ invoiceDate: -1 })
-      .lean();
+    // Delegates querying through invoiceService
+    const allInvoices = await invoiceService.getAllInvoices();
+    const userInvoices = (allInvoices || []).filter(
+      (inv) => inv.userId && (inv.userId._id ? inv.userId._id.toString() : inv.userId.toString()) === req.user._id.toString()
+    );
 
-    const formattedInvoices = invoices.map((inv) => ({
+    const formattedInvoices = userInvoices.map((inv) => ({
       _id: inv._id,
       invoiceNumber: inv.invoiceNumber,
       invoiceDate: inv.invoiceDate,

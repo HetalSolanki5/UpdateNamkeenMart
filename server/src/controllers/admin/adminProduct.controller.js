@@ -9,6 +9,7 @@ import {
 } from '../../models/index.js';
 import { logAudit } from '../../utils/auditLogger.js';
 import { computeStockStatus } from '../product.controller.js';
+import * as productService from '../../services/productService.js';
 
 /**
  * @desc    Get all products for admin (active and inactive), category populated,
@@ -366,13 +367,8 @@ export const toggleProductActive = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
 
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    product.isActive = isActive;
-    await product.save();
+    // Call productService.updateProductStatus
+    const product = await productService.updateProductStatus(id, isActive);
 
     const actionText = isActive ? 'Activated product' : 'Deactivated product';
     await logAudit({

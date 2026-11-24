@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Cart, CartItem, Variant, Stock } from '../models/index.js';
 import { getBestWholeOrderOffer, applyCartDiscount } from '../utils/offerCalculator.js';
+import * as cartService from '../services/cartService.js';
 
 /**
  * Helper to compute stockStatus based on Stock record:
@@ -124,51 +125,19 @@ export const addToCart = async (req, res, next) => {
     const parsedQty = parseInt(quantity, 10);
     const addQuantity = isNaN(parsedQty) || parsedQty <= 0 ? 1 : parsedQty;
 
-    // Validate variant exists and isActive
-    const variant = await Variant.findOne({ _id: variantId, isActive: true });
-    if (!variant) {
-      return res.status(404).json({ message: 'Variant not found' });
-    }
+    // Use cartService.addToCart logic
+    await cartService.addToCart(req.user._id, variantId, addQuantity);
 
-    // Find or create cart for user
-    const cart = await Cart.findOneAndUpdate(
-      { userId: req.user._id },
-      { userId: req.user._id },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    // Check existing item
-    const existingItem = await CartItem.findOne({
-      cartId: cart._id,
-      variantId: variant._id
-    });
-
-    const targetQuantity = existingItem ? existingItem.quantity + addQuantity : addQuantity;
-
-    // Check Stock: availableQuantity - reservedQuantity must be >= targetQuantity
-    const stock = await Stock.findOne({ variantId: variant._id });
-    const available = stock ? ((stock.availableQuantity || 0) - (stock.reservedQuantity || 0)) : 0;
-
-    if (available < targetQuantity) {
-      return res.status(400).json({ message: 'Insufficient stock' });
-    }
-
-    // Update quantity or create new item
-    if (existingItem) {
-      existingItem.quantity = targetQuantity;
-      await existingItem.save();
-    } else {
-      await CartItem.create({
-        cartId: cart._id,
-        variantId: variant._id,
-        quantity: targetQuantity
-      });
-    }
-
-    // Return 201 with updated cart
+    const cart = await Cart.findOne({ userId: req.user._id });
     const cartData = await getCartDetails(cart._id, req.user._id);
     return res.status(201).json(cartData);
   } catch (error) {
+    if (error.message && (error.message.includes('not found') || error.message.includes('unavailable'))) {
+      return res.status(404).json({ message: error.message });
+    }
+    if (error.message && (error.message.includes('stock') || error.message.includes('quantity'))) {
+      return res.status(400).json({ message: error.message });
+    }
     next(error);
   }
 };
@@ -190,30 +159,19 @@ export const updateCartItem = async (req, res, next) => {
       return res.status(400).json({ message: 'Quantity must be at least 1. To remove, use DELETE.' });
     }
 
+    // Use cartService.updateQuantity
+    await cartService.updateQuantity(req.user._id, itemId, parsedQty);
+
     const cart = await Cart.findOne({ userId: req.user._id });
-    if (!cart) {
-      return res.status(404).json({ message: 'Cart not found' });
-    }
-
-    const cartItem = await CartItem.findOne({ _id: itemId, cartId: cart._id });
-    if (!cartItem) {
-      return res.status(404).json({ message: 'Cart item not found' });
-    }
-
-    // Re-check stock for new quantity
-    const stock = await Stock.findOne({ variantId: cartItem.variantId });
-    const available = stock ? ((stock.availableQuantity || 0) - (stock.reservedQuantity || 0)) : 0;
-
-    if (available < parsedQty) {
-      return res.status(400).json({ message: 'Insufficient stock' });
-    }
-
-    cartItem.quantity = parsedQty;
-    await cartItem.save();
-
     const cartData = await getCartDetails(cart._id, req.user._id);
     return res.status(200).json(cartData);
   } catch (error) {
+    if (error.message && error.message.includes('not found')) {
+      return res.status(404).json({ message: error.message });
+    }
+    if (error.message && (error.message.includes('stock') || error.message.includes('quantity'))) {
+      return res.status(400).json({ message: error.message });
+    }
     next(error);
   }
 };
@@ -229,13 +187,12 @@ export const removeCartItem = async (req, res, next) => {
       return res.status(400).json({ message: 'Valid itemId is required' });
     }
 
-    const cart = await Cart.findOne({ userId: req.user._id });
-    if (cart) {
-      await CartItem.findOneAndDelete({ _id: itemId, cartId: cart._id });
-    }
+    // Use cartService.removeItem
+    await cartService.removeItem(req.user._id, itemId);
 
+    const cart = await Cart.findOne({ userId: req.user._id });
     const cartData = cart
-      ? await getCartDetails(cart._id)
+      ? await getCartDetails(cart._id, req.user._id)
       : { items: [], subtotal: 0, deliveryCharge: 0, total: 0 };
 
     return res.status(200).json(cartData);
@@ -249,10 +206,8 @@ export const removeCartItem = async (req, res, next) => {
 // @access  Private (Customer only)
 export const clearCart = async (req, res, next) => {
   try {
-    const cart = await Cart.findOne({ userId: req.user._id });
-    if (cart) {
-      await CartItem.deleteMany({ cartId: cart._id });
-    }
+    // Use cartService.clearCart
+    await cartService.clearCart(req.user._id);
 
     return res.status(200).json({
       items: [],
