@@ -5,6 +5,9 @@ import {
   login, 
   logout, 
   getMe,
+  forgotPassword,
+  verifyResetOTP,
+  resetPassword,
   customerOnly,
   wholesalerOnly,
   adminOnly
@@ -21,6 +24,11 @@ router.post('/register/wholesaler', registerWholesalerRules, validate, registerW
 router.post('/login', loginRules, validate, login);
 router.post('/logout', logout);
 router.get('/me', protect, getMe);
+
+// Forgot & Reset Password
+router.post('/forgot-password', forgotPassword);
+router.post('/verify-otp', verifyResetOTP);
+router.post('/reset-password', resetPassword);
 
 // Test role routes
 router.get('/test/customer', protect, authorize('customer'), customerOnly);
