@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getAdminProducts, updateAdminVariant, updateAdminStock } from '../../api/adminApi.js';
+import { getAdminProducts, updateAdminVariant, updateAdminStock, createAdminProduct } from '../../api/adminApi.js';
+import { getCategories } from '../../api/catalogApi.js';
 import Loader from '../../components/Loader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 
@@ -12,6 +13,26 @@ const AdminProductsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
+  // Categories list for product creation
+  const [categories, setCategories] = useState([]);
+
+  // Create Product Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createFeedback, setCreateFeedback] = useState(null);
+  const [newProductData, setNewProductData] = useState({
+    productName: '',
+    categoryId: '',
+    productRange: 'regular',
+    description: '',
+    weight: '250',
+    unit: 'g',
+    sellingPrice: '',
+    wholesalePrice: '',
+    stockQuantity: '50',
+    lowStockThreshold: '10'
+  });
+
   // Edit Modal State
   const [editingVariant, setEditingVariant] = useState(null);
   const [editProduct, setEditProduct] = useState(null);
@@ -23,6 +44,18 @@ const AdminProductsPage = () => {
   });
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
+
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data.categories || []);
+      if (data.categories?.length > 0 && !newProductData.categoryId) {
+        setNewProductData((prev) => ({ ...prev, categoryId: data.categories[0]._id }));
+      }
+    } catch (err) {
+      console.error('Failed to load categories', err);
+    }
+  };
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -41,7 +74,89 @@ const AdminProductsPage = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, [fetchProducts]);
+
+  const handleOpenAddModal = () => {
+    setCreateFeedback(null);
+    setShowAddModal(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setCreateFeedback(null);
+  };
+
+  const handleCreateProduct = async (e) => {
+    e.preventDefault();
+    if (!newProductData.productName || !newProductData.categoryId) {
+      setCreateFeedback({ type: 'error', message: 'Product name and category are required.' });
+      return;
+    }
+
+    if (!newProductData.sellingPrice || !newProductData.wholesalePrice) {
+      setCreateFeedback({ type: 'error', message: 'Selling price and wholesale price are required.' });
+      return;
+    }
+
+    setCreating(true);
+    setCreateFeedback(null);
+
+    try {
+      const skuCode = `${newProductData.productName.slice(0, 3).toUpperCase()}-${newProductData.weight}${newProductData.unit}-${Date.now().toString().slice(-4)}`;
+
+      const payload = {
+        categoryId: newProductData.categoryId,
+        productName: newProductData.productName.trim(),
+        productRange: newProductData.productRange,
+        description: newProductData.description.trim(),
+        variants: [
+          {
+            weight: Number(newProductData.weight),
+            unit: newProductData.unit,
+            displayName: `${newProductData.productName.trim()} - ${newProductData.weight}${newProductData.unit}`,
+            sellingPrice: Number(newProductData.sellingPrice),
+            wholesalePrice: Number(newProductData.wholesalePrice),
+            sku: skuCode,
+            initialQuantity: Number(newProductData.stockQuantity) || 0,
+            lowStockThreshold: Number(newProductData.lowStockThreshold) || 10
+          }
+        ]
+      };
+
+      await createAdminProduct(payload);
+
+      setCreateFeedback({ type: 'success', message: 'Product created successfully with initial stock & variant!' });
+      
+      // Reset form
+      setNewProductData({
+        productName: '',
+        categoryId: categories[0]?._id || '',
+        productRange: 'regular',
+        description: '',
+        weight: '250',
+        unit: 'g',
+        sellingPrice: '',
+        wholesalePrice: '',
+        stockQuantity: '50',
+        lowStockThreshold: '10'
+      });
+
+      // Refresh product list
+      await fetchProducts();
+
+      setTimeout(() => {
+        handleCloseAddModal();
+      }, 1200);
+    } catch (err) {
+      setCreateFeedback({
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to create product. Please try again.'
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const openEditModal = (product, variant) => {
     setEditProduct(product);
@@ -125,18 +240,29 @@ const AdminProductsPage = () => {
           </p>
         </div>
 
-        {/* Search */}
-        <div className="w-full sm:w-72">
-          <input
-            type="text"
-            placeholder="Search products by name..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full px-3.5 py-2 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#C62828]"
-          />
+        {/* Actions & Search */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handleOpenAddModal}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#C62828] hover:bg-[#8E1B1B] text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-xs cursor-pointer shrink-0"
+          >
+            <span className="text-base leading-none font-black">+</span>
+            <span>Add Product</span>
+          </button>
+
+          <div className="w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search products by name..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3.5 py-2 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#C62828]"
+            />
+          </div>
         </div>
       </div>
 
@@ -383,6 +509,211 @@ const AdminProductsPage = () => {
                   className="px-5 py-2.5 bg-[#C62828] hover:bg-[#8E1B1B] text-white text-xs font-bold rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Product Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 border-t-4 border-[#C62828] relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Add New Product</h3>
+                <p className="text-xs text-gray-500">Create a new product with initial variant, price & stock.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseAddModal}
+                className="text-gray-400 hover:text-black font-bold text-lg p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {createFeedback && (
+              <div
+                className={`p-3 rounded-xl text-xs font-semibold mb-4 border ${
+                  createFeedback.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-red-50 text-red-700 border-red-200'
+                }`}
+              >
+                {createFeedback.message}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateProduct} className="space-y-4">
+              {/* Product Name */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Product Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Diet Roasted Makhana or Ratlami Sev"
+                  value={newProductData.productName}
+                  onChange={(e) => setNewProductData((prev) => ({ ...prev, productName: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#C62828]"
+                />
+              </div>
+
+              {/* Category & Product Range */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">
+                    Category *
+                  </label>
+                  <select
+                    required
+                    value={newProductData.categoryId}
+                    onChange={(e) => setNewProductData((prev) => ({ ...prev, categoryId: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#C62828] bg-white"
+                  >
+                    {categories.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.categoryName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">
+                    Product Range (Diet / Regular) *
+                  </label>
+                  <select
+                    value={newProductData.productRange}
+                    onChange={(e) => setNewProductData((prev) => ({ ...prev, productRange: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#C62828] bg-white font-medium"
+                  >
+                    <option value="regular">Regular Range</option>
+                    <option value="diet">Diet Range (Green Badge)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Short Description
+                </label>
+                <textarea
+                  rows="2"
+                  placeholder="Briefly describe the product taste, ingredients, or specialty..."
+                  value={newProductData.description}
+                  onChange={(e) => setNewProductData((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#C62828]"
+                />
+              </div>
+
+              {/* Initial Variant Details */}
+              <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-3">
+                <span className="text-[11px] font-bold text-[#C62828] uppercase tracking-wider block">
+                  Initial Pack Size & Pricing
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Weight *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="250"
+                      value={newProductData.weight}
+                      onChange={(e) => setNewProductData((prev) => ({ ...prev, weight: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#C62828]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Unit *</label>
+                    <select
+                      value={newProductData.unit}
+                      onChange={(e) => setNewProductData((prev) => ({ ...prev, unit: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#C62828]"
+                    >
+                      <option value="g">grams (g)</option>
+                      <option value="kg">kg</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Retail (₹) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="120"
+                      value={newProductData.sellingPrice}
+                      onChange={(e) => setNewProductData((prev) => ({ ...prev, sellingPrice: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#C62828]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Wholesale (₹) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="90"
+                      value={newProductData.wholesalePrice}
+                      onChange={(e) => setNewProductData((prev) => ({ ...prev, wholesalePrice: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#C62828]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-gray-200/60">
+                  <div>
+                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Initial Stock (Units) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      placeholder="50"
+                      value={newProductData.stockQuantity}
+                      onChange={(e) => setNewProductData((prev) => ({ ...prev, stockQuantity: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#C62828]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Low Stock Alert Threshold</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="10"
+                      value={newProductData.lowStockThreshold}
+                      onChange={(e) => setNewProductData((prev) => ({ ...prev, lowStockThreshold: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#C62828]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={handleCloseAddModal}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-black cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-5 py-2.5 bg-[#C62828] hover:bg-[#8E1B1B] text-white text-xs font-bold rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {creating ? 'Creating Product...' : 'Create Product'}
                 </button>
               </div>
             </form>

@@ -113,6 +113,16 @@ export const getAuditLogs = async (params = {}) => {
 };
 
 /**
+ * Create a new product with optional initial variants and stock (POST /api/admin/products)
+ * @param {Object} data - { categoryId, productName, productRange, description, ingredients, nutritionalInformation, productImages, variants }
+ * @returns {Promise<{ message: string, product: Object, variants: Array }>}
+ */
+export const createAdminProduct = async (data) => {
+  const response = await axiosClient.post('/admin/products', data);
+  return response.data;
+};
+
+/**
  * Get admin products with variants, stock & pricing (GET /api/admin/products)
  * @param {Object} params - { search, category, page, limit }
  */
